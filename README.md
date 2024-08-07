@@ -17,7 +17,7 @@ and edit to suit your needs.
 Build and install.
 
     $ $EDITOR_OF_CHOICE config.h
-    $ make
+    $ make -j8 # where 8 are CPU cores
     # make install
 
 The packages in Arch Linux needed for example would be
