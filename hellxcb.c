@@ -62,7 +62,7 @@ static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", 
 #define CLEANMASK(mask) (mask & ~(numlockmask | XCB_MOD_MASK_LOCK))
 #define BUTTONMASK      XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_BUTTON_RELEASE
 #define ISFFT(c)        (c->isfullscrn || c->isfloating || c->istransient)
-#define USAGE           "usage: monsterwm [-h] [-v]"
+#define USAGE           "usage: hellxcb [-h] [-v]"
 
 enum { RESIZE, MOVE };
 enum { TILE, MONOCLE, BSTACK, GRID, MODES };
@@ -308,7 +308,7 @@ static void xcb_get_atoms(char **names, xcb_atom_t *atoms, unsigned int count) {
         if (reply) {
             DEBUGP("%s : %d\n", names[i], reply->atom);
             atoms[i] = reply->atom; free(reply);
-        } else puts("WARN: monsterwm failed to register %s atom.\nThings might not work right.");
+        } else puts("WARN: hellxcb failed to register %s atom.\nThings might not work right.");
     }
 }
 
