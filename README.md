@@ -20,8 +20,10 @@ Build and install.
     $ make -j8 # where 8 are CPU cores
     # make install
 
+To have mouse cursor, open up `.xinitrc` and append somewhere before the `case` label the following `xsetroot -cursor_name left_ptr`
+
 The packages in Arch Linux needed for example would be
-`libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` `X11`
+`libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` 
 
 Bugs
 ----
