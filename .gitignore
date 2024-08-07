@@ -1,6 +1,5 @@
-monsterwm
+hellxcb
 *.o
 *.swp
 *~
 *.diff
-config.h
