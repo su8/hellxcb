@@ -36,7 +36,7 @@ Fill bugs only on hellxcb, when you are sure the bug doesn't occur on [monsterwm
 Thanks
 ------
 
-Cloudef for https://github.com/Cloudef/monsterwm-xcb
+Cloudef for [monsterwm-xcb](https://github.com/Cloudef/monsterwm-xcb)
 [the suckless team][skls] for [dwm][],
 [moetunes][] for [dminiwm][],
 [pyknite][] for [catwm][],
