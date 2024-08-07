@@ -36,6 +36,7 @@ Fill bugs only on hellxcb, when you are sure the bug doesn't occur on [monsterwm
 Thanks
 ------
 
+[Cloudef] for [monsterwm-xcb]
 [the suckless team][skls] for [dwm][],
 [moetunes][] for [dminiwm][],
 [pyknite][] for [catwm][],
@@ -49,3 +50,4 @@ Thanks
   [catwm]:   https://github.com/pyknite/catwm
   [monsterwm]: https://github.com/c00kiemon5ter/monsterwm
   [cookiemonster]: https://github.com/c00kiemon5ter
+  [monsterwm-xcb]: https://github.com/Cloudef/monsterwm-xcb
