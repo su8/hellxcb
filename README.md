@@ -22,6 +22,8 @@ Build and install.
 
 To have mouse cursor, open up `.xinitrc` and append somewhere before the `case` label the following `xsetroot -cursor_name left_ptr`
 
+The statusline in the picture above is made of https://github.com/su8/doomy
+
 The packages in Arch Linux needed for example would be
 `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` 
 
