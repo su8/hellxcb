@@ -1,6 +1,8 @@
 hellxcb
 =============
 
+![](1pic.png)
+
 → tiny(!) and monsterous!
 ----------------------
 This is xcb port of monsterwm tiling window manager.
