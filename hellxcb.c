@@ -994,6 +994,8 @@ void save_desktop(int i) {
 
 /* set the specified desktop's properties */
 void select_desktop(int i) {
+    FILE *fp = NULL;
+    static char *styles_arr[] = { "tile", "monocle", "bstack", "grid" };
     if (i < 0 || i >= DESKTOPS) return;
     save_desktop(current_desktop);
     master_size     = desktops[i].master_size;
@@ -1004,6 +1006,9 @@ void select_desktop(int i) {
     showpanel       = desktops[i].showpanel;
     prevfocus       = desktops[i].prevfocus;
     current_desktop = i;
+    if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open text file to output some data."); return; }
+    fprintf(fp, "%d %s", i + 1, styles_arr[mode]);
+    (void)fclose(fp);
 }
 
 /* set or unset fullscreen state of client */

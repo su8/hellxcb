@@ -40,6 +40,7 @@ MA 02110-1301, USA.
 #define DESKTOPS        4         /* number of desktops - edit DESKTOPCHANGE keys to suit */
 #define DEFAULT_DESKTOP 0         /* the desktop to focus on exec */
 #define MINWSZ          50        /* minimum window size in pixels */
+#define HELLXCB_TAG_AND_MODE "/tmp/hellxcb.txt" /* file to output the current focused window and it's style e.g: tiled bstack monocle */
 
 /* open applications to specified desktop with specified mode.
  * if desktop is negative, then current is assumed */
@@ -65,7 +66,7 @@ static key keys[] = {
     /* modifier          key            function           argument */
     {  MOD1,             XK_b,          togglepanel,       {NULL}},
     {  MOD1,             XK_BackSpace,  focusurgent,       {NULL}},
-    {  MOD1,       XK_c,          killclient,        {NULL}},
+    {  MOD1,             XK_c,          killclient,        {NULL}},
     {  MOD1,             XK_j,          next_win,          {NULL}},
     {  MOD1,             XK_k,          prev_win,          {NULL}},
     {  MOD1,             XK_h,          resize_master,     {.i = -10}}, /* decrease size in px */
