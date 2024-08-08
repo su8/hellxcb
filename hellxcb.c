@@ -994,7 +994,7 @@ void save_desktop(int i) {
 
 /* set the specified desktop's properties */
 void select_desktop(int i) {
-    FILE *fp = NULL;
+    static FILE *fp = NULL;
     static char *styles_arr[] = { "tile", "monocle", "bstack", "grid" };
     if (i < 0 || i >= DESKTOPS) return;
     save_desktop(current_desktop);
