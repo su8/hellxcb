@@ -1143,7 +1143,7 @@ void spawn(const Arg *arg) {
 
 /* arrange windows in normal or bottom stack tile */
 void stack(int hh, int cy) {
-    numOfWindows = 0U;
+    numOfWindows = 1U;
     client *c = NULL, *t = NULL; bool b = mode == BSTACK;
     int n = 0, d = 0, z = b ? ww:hh, ma = (mode == BSTACK ? wh:ww) * MASTER_SIZE + master_size;
 
