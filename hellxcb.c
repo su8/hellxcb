@@ -55,7 +55,8 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
-static unsigned int dontStealFocus = 0U; /* don't steal focus from busy programs and/or from upload file dialogs */
+//static unsigned int numOfWindows = 0U; /* count how many windows are in the currently workin tag/workspace */
+static unsigned int dontStealFocus = 0U; /* don't steal busy programs/uplod file dialogs */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
 static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
@@ -67,7 +68,7 @@ static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", 
 #define USAGE           "usage: hellxcb [-h] [-v]"
 
 enum { RESIZE, MOVE };
-enum { TILE, MONOCLE, BSTACK, GRID, MODES };
+enum { TILE, BSTACK, GRID, MODES };
 enum { WM_PROTOCOLS, WM_DELETE_WINDOW, WM_COUNT };
 enum { NET_SUPPORTED, NET_FULLSCREEN, NET_WM_STATE, NET_ACTIVE, NET_COUNT };
 
@@ -175,7 +176,7 @@ static void keypress(xcb_generic_event_t *e);
 static void killclient();
 static void last_desktop();
 static void maprequest(xcb_generic_event_t *e);
-static void monocle(int h, int y);
+/*static void monocle(int h, int y);*/
 static void move_down();
 static void move_up();
 static void mouse_aside();
@@ -229,7 +230,7 @@ static void (*events[XCB_NO_OPERATION])(xcb_generic_event_t *e);
  * h (or hh) - avaible height that windows have to expand
  * y (or cy) - offset from top to place the windows (reserved by the panel) */
 static void (*layout[MODES])(int h, int y) = {
-    [TILE] = stack, [BSTACK] = stack, [GRID] = grid, [MONOCLE] = monocle,
+    [TILE] = stack, [BSTACK] = stack, [GRID] = grid,
 };
 
 /* get screen of display */
@@ -334,7 +335,7 @@ static int xcb_checkotherwm(void) {
     return 0;
 }
 
-/* manually set dontstealfocus to be used by FOLLOW_MOUSE */
+/* manually set dontstealfocus used by FOLLOW_MOUSE */
  static void aDontStealFocus(const Arg *arg) {
     (void)arg;
     dontStealFocus = 0U;
@@ -351,7 +352,7 @@ client* addwindow(xcb_window_t w) {
     else if (!ATTACH_ASIDE) { c->next = head; head = c; }
     else if (t) t->next = c; else head->next = c;
 
-    unsigned int values[1] = { XCB_EVENT_MASK_PROPERTY_CHANGE|(FOLLOW_MOUSE?XCB_EVENT_MASK_ENTER_WINDOW:0) };
+    unsigned int values[1] = { XCB_EVENT_MASK_PROPERTY_CHANGE|(FOLLOW_MOUSE ? XCB_EVENT_MASK_ENTER_WINDOW : 0) };
     xcb_change_window_attributes_checked(dis, (c->win = w), XCB_CW_EVENT_MASK, values);
     return c;
 }
@@ -482,13 +483,11 @@ void configurerequest(xcb_generic_event_t *e) {
     tile();
 }
 
-/* cycle thru all of the tiling modes and reset all floating windows */
-static void cycle_mode(const Arg *arg) {
+void cycle_mode(const Arg *arg) {
     (void)arg;
     static unsigned int x = 0U;
-
-    for (client *c = head; c; c = c->next) c->isfloating = False;
-    if (x >= 4U) x = 0U;
+    for (client *c=head; c; c=c->next) c->isfloating = False;
+    if (x >= 3U) x = 0U;
     mode = x++;
 
     tile(); update_current(current);
@@ -527,6 +526,15 @@ void desktopinfo(void) {
         for (select_desktop(d), c=head, n=0, urgent=false; c; c=c->next, ++n) if (c->isurgent) urgent = true;
         fprintf(stdout, "%d:%d:%d:%d:%d%c", d, n, mode, current_desktop == cd, urgent, d+1==DESKTOPS?'\n':' ');
     }
+
+    /*numOfWindows = 0U;
+    for (client *c; d<DESKTOPS; d++) 
+        for (c=head; c; c=c->next, ++numOfWindows) ;
+
+    FILE *fp = fopen("/tmp/hell", "w");
+    fprintf(fp, "%u", numOfWindows);
+    (void)fclose(fp);*/
+
     fflush(stdout);
     if (cd != d-1) select_desktop(cd);
 }
@@ -724,7 +732,16 @@ void maprequest(xcb_generic_event_t *e) {
 
     if (c->isfloating) dontStealFocus = 1U;
     else { c->isfloating = 0; dontStealFocus = 0U; }
-  
+
+    /*int d=0;
+     numOfWindows = 0U;
+    for (client *c2; d<DESKTOPS; d++) 
+        for (c2=head; c2; c2=c2->next, ++numOfWindows) ;
+
+    FILE *fp = fopen("/tmp/hell", "w");
+    fprintf(fp, "%u", numOfWindows);
+    (void)fclose(fp);*/
+
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
     else if (follow) { change_desktop(&(Arg){.i = newdsk}); update_current(c); }
@@ -819,9 +836,9 @@ void mousemotion(const Arg *arg) {
 }
 
 /* each window should cover all the available screen space */
-void monocle(int hh, int cy) {
+/*void monocle(int hh, int cy) {
     for (client *c=head; c; c=c->next) if (!ISFFT(c)) xcb_move_resize(dis, c->win, 0, cy, ww, hh);
-}
+}*/
 
 /* move the current client, to current->next
  * and current->next to current client's position */
@@ -1021,7 +1038,7 @@ void save_desktop(int i) {
 /* set the specified desktop's properties */
 void select_desktop(int i) {
     static FILE *fp = NULL;
-    static char *styles_arr[] = { "tile", "monocle", "bstack", "grid" };
+    static char *styles_arr[] = { "tile", "bstack", "grid"};
     if (i < 0 || i >= DESKTOPS) return;
     save_desktop(current_desktop);
     master_size     = desktops[i].master_size;
@@ -1032,7 +1049,7 @@ void select_desktop(int i) {
     showpanel       = desktops[i].showpanel;
     prevfocus       = desktops[i].prevfocus;
     current_desktop = i;
-    if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open text file to output some data."); return; }
+    if (!(fp = fopen("/tmp/hellxcb.txt", "w"))) { puts("Cannot open a text file to output some data."); return; }
     fprintf(fp, "[tag: %d] [mode: %s]", i + 1, styles_arr[mode]);
     (void)fclose(fp);
 }
@@ -1044,7 +1061,7 @@ void setfullscreen(client *c, bool fullscrn) {
     if (fullscrn != c->isfullscrn) xcb_change_property(dis, XCB_PROP_MODE_REPLACE, c->win, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, fullscrn, data);
     if ((c->isfullscrn = fullscrn)) xcb_move_resize(dis, c->win, 0, 0, ww, wh + PANEL_HEIGHT);
     xcb_border_width(dis, c->win, (!head->next || c->isfullscrn
-                || (mode == MONOCLE && !ISFFT(c))) ? 0:BORDER_WIDTH);
+                || (!ISFFT(c))) ? 0:BORDER_WIDTH);
     update_current(c);
 }
 
@@ -1220,7 +1237,7 @@ void switch_mode(const Arg *arg) {
 /* tile all windows of current desktop - call the handler tiling function */
 void tile(void) {
     if (!head) return; /* nothing to arange */
-    layout[head->next ? mode : MONOCLE](wh + (showpanel ? 0:PANEL_HEIGHT),
+    layout[head->next ? mode : TILE](wh + (showpanel ? 0:PANEL_HEIGHT),
                                 (TOP_PANEL && showpanel ? PANEL_HEIGHT:0));
 }
 
@@ -1271,7 +1288,7 @@ void update_current(client *c) {
     for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
         xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
         xcb_border_width(dis, c->win, (!head->next || c->isfullscrn
-                    || (mode == MONOCLE && !ISFFT(c))) ? 0:BORDER_WIDTH);
+                    || (!ISFFT(c))) ? 0:BORDER_WIDTH);
         //if (CLICK_TO_FOCUS) xcb_grab_button(dis, 1, c->win, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
         //   screen->root, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_BUTTON_MASK_ANY);
         if (c != current) w[c->isfullscrn ? --fl : ISFFT(c) ? --ft : --n] = c->win;
@@ -1290,9 +1307,16 @@ void update_current(client *c) {
 client* wintoclient(xcb_window_t w) {
     client *c = NULL;
     int d = 0, cd = current_desktop;
+    //numOfWindows = 0U;
     for (bool found = false; d<DESKTOPS && !found; ++d)
         for (select_desktop(d), c=head; c && !(found = (w == c->win)); c=c->next);
+
     if (cd != d-1) select_desktop(cd);
+
+    /*FILE *fp = fopen("/tmp/hell", "w");
+    fprintf(fp, "%d", numOfWindows);
+    (void)fclose(fp);*/
+
     return c;
 }
 
