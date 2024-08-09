@@ -387,6 +387,7 @@ void buttonpress(xcb_generic_event_t *e) {
  * then unmap the old windows
  * first all others then the current */
 void change_desktop(const Arg *arg) {
+    numOfWindows = 0U;
     if (arg->i == current_desktop) return;
     previous_desktop = current_desktop;
     select_desktop(arg->i);
