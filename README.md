@@ -30,6 +30,8 @@ The packages in Arch Linux needed for example would be
 Bugs
 ----
 
+I have fixed - https://github.com/Cloudef/monsterwm-xcb/issues/8 . When closing pop-up dialogs you must use `alt + z` to bring the focusing back to normal.
+
 Fill bugs only on hellxcb, when you are sure the bug doesn't occur on [monsterwm][].
 
 [monsterwm issues][monsterwm-bug]
