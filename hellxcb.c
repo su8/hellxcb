@@ -55,6 +55,8 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
+static unsigned int dontStealFocus = 0U; /* don't steal focus from busy programs and/or from upload file dialogs */
+
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
 static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
 
@@ -151,6 +153,7 @@ typedef struct {
 } AppRule;
 
  /* function prototypes sorted alphabetically */
+static void aDontStealFocus(const Arg *arg);
 static client* addwindow(xcb_window_t w);
 static void buttonpress(xcb_generic_event_t *e);
 static void change_desktop(const Arg *arg);
@@ -329,6 +332,12 @@ static int xcb_checkotherwm(void) {
     if (error) return 1;
     return 0;
 }
+
+/* manually set dontstealfocus to be used by FOLLOW_MOUSE */
+ static void aDontStealFocus(const Arg *arg) {
+    (void)arg;
+    dontStealFocus = 0U;
+ }
 
 /* create a new client and add the new window
  * window should notify of property change events
@@ -527,7 +536,7 @@ void enternotify(xcb_generic_event_t *e) {
     if (!FOLLOW_MOUSE) return;
     DEBUG("xcb: enter notify");
     client *c = wintoclient(ev->event);
-    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR) update_current(c);
+    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !dontStealFocus) update_current(c);
 }
 
 /* find and focus the client which received
@@ -699,6 +708,9 @@ void maprequest(xcb_generic_event_t *e) {
     DEBUGP("transient: %d\n", c->istransient);
     DEBUGP("floating:  %d\n", c->isfloating);
 
+    if (c->isfloating) dontStealFocus = 1U;
+    else { c->isfloating = 0; dontStealFocus = 0U; }
+  
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
     else if (follow) { change_desktop(&(Arg){.i = newdsk}); update_current(c); }
