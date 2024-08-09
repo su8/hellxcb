@@ -55,6 +55,7 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
+static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
 static unsigned int dontStealFocus = 0U; /* don't steal busy programs/uplod file dialogs */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
@@ -1032,7 +1033,7 @@ void select_desktop(int i) {
     prevfocus       = desktops[i].prevfocus;
     current_desktop = i;
     if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open a text file to output some data."); return; }
-    fprintf(fp, "[tag: %d] [mode: %s]", i + 1, styles_arr[mode]);
+    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u]", i + 1, styles_arr[mode], numOfWindows);
     (void)fclose(fp);
 }
 
@@ -1142,11 +1143,12 @@ void spawn(const Arg *arg) {
 
 /* arrange windows in normal or bottom stack tile */
 void stack(int hh, int cy) {
+    numOfWindows = 0U;
     client *c = NULL, *t = NULL; bool b = mode == BSTACK;
     int n = 0, d = 0, z = b ? ww:hh, ma = (mode == BSTACK ? wh:ww) * MASTER_SIZE + master_size;
 
     /* count stack windows and grab first non-floating, non-fullscreen window */
-    for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) ++n; else c = t; }
+    for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) { ++n; numOfWindows++; } else c = t; }
 
     /* if there is only one window, it should cover the available screen space
      * if there is only one stack window (n == 1) then we don't care about growth
