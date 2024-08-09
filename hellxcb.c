@@ -161,6 +161,7 @@ static void cleanup(void);
 static void client_to_desktop(const Arg *arg);
 static void clientmessage(xcb_generic_event_t *e);
 static void configurerequest(xcb_generic_event_t *e);
+static void cycle_mode(const Arg *arg);
 static void deletewindow(xcb_window_t w);
 static void desktopinfo(void);
 static void destroynotify(xcb_generic_event_t *e);
@@ -479,6 +480,19 @@ void configurerequest(xcb_generic_event_t *e) {
         xcb_configure_window(dis, ev->window, ev->value_mask, v);
     }
     tile();
+}
+
+/* cycle thru all of the tiling modes and reset all floating windows */
+static void cycle_mode(const Arg *arg) {
+    (void)arg;
+    static unsigned int x = 0U;
+
+    for (client *c = head; c; c = c->next) c->isfloating = False;
+    if (x >= 4U) x = 0U;
+    mode = x++;
+
+    tile(); update_current(current);
+    desktopinfo();
 }
 
 /* close the window */
