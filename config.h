@@ -40,7 +40,6 @@ MA 02110-1301, USA.
 #define DESKTOPS        4         /* number of desktops - edit DESKTOPCHANGE keys to suit */
 #define DEFAULT_DESKTOP 0         /* the desktop to focus on exec */
 #define MINWSZ          50        /* minimum window size in pixels */
-#define HELLXCB_TAG_AND_MODE "/tmp/hellxcb.txt" /* file to output the current focused window and it's style e.g: tiled bstack monocle */
 
 /* open applications to specified desktop with specified mode.
  * if desktop is negative, then current is assumed */
@@ -55,7 +54,8 @@ static const AppRule rules[] = { \
 
 /** commands **/
 static const char *termcmd[] = { "xterm",     NULL };
-static const char *menucmd[] = { "dmenu_run", NULL };
+static const char *menucmd[] = { "dmenu", NULL };
+static const char *xfce4terminal[] = { "xfce4-terminal", NULL };
 
 #define DESKTOPCHANGE(K,N) \
     {  MOD1,             K,              change_desktop, {.i = N}}, \
@@ -80,18 +80,17 @@ static key keys[] = {
     {  MOD1|SHIFT,       XK_l,          rotate_filled,     {.i = +1}},
     {  MOD1,             XK_Tab,        last_desktop,      {NULL}},
     {  MOD1,             XK_Return,     swap_master,       {NULL}},
+    {  MOD1,             XK_z,          aDontStealFocus,   {NULL}},
+    {  MOD1|SHIFT,       XK_y,          cycle_mode,        {NULL}},
     {  MOD1|SHIFT,       XK_j,          move_down,         {NULL}},
     {  MOD1|SHIFT,       XK_k,          move_up,           {NULL}},
     {  MOD1|SHIFT,       XK_t,          switch_mode,       {.i = TILE}},
-    {  MOD1|SHIFT,       XK_m,          switch_mode,       {.i = MONOCLE}},
     {  MOD1|SHIFT,       XK_b,          switch_mode,       {.i = BSTACK}},
     {  MOD1|SHIFT,       XK_g,          switch_mode,       {.i = GRID}},
-    {  MOD1|SHIFT,       XK_y,          cycle_mode,        {NULL}},
     {  MOD1|CONTROL,     XK_r,          quit,              {.i = 0}}, /* quit with exit value 0 */
     {  MOD1|CONTROL,     XK_q,          quit,              {.i = 1}}, /* quit with exit value 1 */
-    {  MOD1,             XK_z,          aDontStealFocus,   {NULL}},
     {  MOD1|SHIFT,       XK_Return,     spawn,             {.com = termcmd}},
-    {  MOD4,             XK_v,          spawn,             {.com = menucmd}},
+    {  MOD4,             XK_x,          spawn,             {.com = xfce4terminal}},
        DESKTOPCHANGE(    XK_1,                             0)
        DESKTOPCHANGE(    XK_2,                             1)
        DESKTOPCHANGE(    XK_3,                             2)
