@@ -55,7 +55,6 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
-//static unsigned int numOfWindows = 0U; /* count how many windows are in the currently workin tag/workspace */
 static unsigned int dontStealFocus = 0U; /* don't steal busy programs/uplod file dialogs */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
@@ -335,7 +334,7 @@ static int xcb_checkotherwm(void) {
     return 0;
 }
 
-/* manually set dontstealfocus used by FOLLOW_MOUSE */
+/* manually set dontstealfocus to be used by FOLLOW_MOUSE macro */
  static void aDontStealFocus(const Arg *arg) {
     (void)arg;
     dontStealFocus = 0U;
@@ -483,6 +482,7 @@ void configurerequest(xcb_generic_event_t *e) {
     tile();
 }
 
+/* cycle thru all of the tiling modes and reset all floating windows */
 void cycle_mode(const Arg *arg) {
     (void)arg;
     static unsigned int x = 0U;
@@ -526,15 +526,6 @@ void desktopinfo(void) {
         for (select_desktop(d), c=head, n=0, urgent=false; c; c=c->next, ++n) if (c->isurgent) urgent = true;
         fprintf(stdout, "%d:%d:%d:%d:%d%c", d, n, mode, current_desktop == cd, urgent, d+1==DESKTOPS?'\n':' ');
     }
-
-    /*numOfWindows = 0U;
-    for (client *c; d<DESKTOPS; d++) 
-        for (c=head; c; c=c->next, ++numOfWindows) ;
-
-    FILE *fp = fopen("/tmp/hell", "w");
-    fprintf(fp, "%u", numOfWindows);
-    (void)fclose(fp);*/
-
     fflush(stdout);
     if (cd != d-1) select_desktop(cd);
 }
@@ -732,15 +723,6 @@ void maprequest(xcb_generic_event_t *e) {
 
     if (c->isfloating) dontStealFocus = 1U;
     else { c->isfloating = 0; dontStealFocus = 0U; }
-
-    /*int d=0;
-     numOfWindows = 0U;
-    for (client *c2; d<DESKTOPS; d++) 
-        for (c2=head; c2; c2=c2->next, ++numOfWindows) ;
-
-    FILE *fp = fopen("/tmp/hell", "w");
-    fprintf(fp, "%u", numOfWindows);
-    (void)fclose(fp);*/
 
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
@@ -1049,7 +1031,7 @@ void select_desktop(int i) {
     showpanel       = desktops[i].showpanel;
     prevfocus       = desktops[i].prevfocus;
     current_desktop = i;
-    if (!(fp = fopen("/tmp/hellxcb.txt", "w"))) { puts("Cannot open a text file to output some data."); return; }
+    if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open a text file to output some data."); return; }
     fprintf(fp, "[tag: %d] [mode: %s]", i + 1, styles_arr[mode]);
     (void)fclose(fp);
 }
@@ -1307,16 +1289,10 @@ void update_current(client *c) {
 client* wintoclient(xcb_window_t w) {
     client *c = NULL;
     int d = 0, cd = current_desktop;
-    //numOfWindows = 0U;
     for (bool found = false; d<DESKTOPS && !found; ++d)
         for (select_desktop(d), c=head; c && !(found = (w == c->win)); c=c->next);
 
     if (cd != d-1) select_desktop(cd);
-
-    /*FILE *fp = fopen("/tmp/hell", "w");
-    fprintf(fp, "%d", numOfWindows);
-    (void)fclose(fp);*/
-
     return c;
 }
 
