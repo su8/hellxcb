@@ -651,6 +651,7 @@ void killclient() {
     if (got) deletewindow(current->win);
     else xcb_kill_client(dis, current->win);
     removeclient(current);
+    numOfWindows == 1 ? numOfWindows-- : 0;
 }
 
 /* focus the previously focused desktop */
