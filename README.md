@@ -22,7 +22,7 @@ Build and install.
 
 To have mouse cursor, open up `.xinitrc` and append somewhere before the `case` label the following `xsetroot -cursor_name left_ptr`
 
-The statusline in the picture above is made of https://github.com/su8/doomy .
+The statusline in the picture above is made of https://github.com/su8/doomy . You can use `sed` to make a named tag/workspace from `/tmp/hellxcb.txt` , just use `sed -E 's/tag: 1/tag: web/g; s/tag: 2/:tag dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g'`
 
 The packages needed for example would be
 `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` 
