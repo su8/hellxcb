@@ -8,11 +8,12 @@ hellxcb
 This is xcb port of monsterwm tiling window manager.
 For more detailed README refer to [monsterwm][]
 
+The code editor in the picture above is Microsoft Visual Code Editor -- not **Studio Editor**
+
 Installation
 ------------
 
-You need xcb and xcb-utils then,
-open up `config.h`
+Open up `config.h`
 and edit to suit your needs.
 Build and install.
 
@@ -42,7 +43,7 @@ Fill bugs only on hellxcb, when you are sure the bug doesn't occur on [monsterwm
 Thanks
 ------
 
-Cloudef for [monsterwm-xcb](https://github.com/Cloudef/monsterwm-xcb),
+[Cloudef](https://github.com/Cloudef) for [monsterwm-xcb](https://github.com/Cloudef/monsterwm-xcb),
 [the suckless team][skls] for [dwm][],
 [moetunes][] for [dminiwm][],
 [pyknite][] for [catwm][],
