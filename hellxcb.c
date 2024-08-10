@@ -620,6 +620,7 @@ void grid(int hh, int cy) {
 
     int rows = n/cols, ch = hh - BORDER_WIDTH, cw = (ww - BORDER_WIDTH)/(cols?cols:1);
     for (client *c=head; c; c=c->next) {
+        if (c->isfloating) continue;
         if (ISFFT(c)) continue; else { ++i; numOfWindows++; }
         if (i/rows + 1 > cols - n%cols) rows = n/cols + 1;
         xcb_move_resize(dis, c->win, cn*cw, cy + rn*ch/rows, cw - BORDER_WIDTH, ch/rows - BORDER_WIDTH);
