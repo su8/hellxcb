@@ -56,7 +56,7 @@ MA 02110-1301, USA.
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
 static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
-static unsigned int dontStealFocus = 0U; /* don't steal busy programs/uplod file dialogs */
+static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
 static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
@@ -335,10 +335,10 @@ static int xcb_checkotherwm(void) {
     return 0;
 }
 
-/* manually set dontstealfocus to be used by FOLLOW_MOUSE macro */
+/* manually set stealFocus to be used by FOLLOW_MOUSE macro */
  static void aDontStealFocus(const Arg *arg) {
     (void)arg;
-    dontStealFocus = 0U;
+    stealFocus = 0U;
  }
 
 /* create a new client and add the new window
@@ -551,7 +551,7 @@ void enternotify(xcb_generic_event_t *e) {
     if (!FOLLOW_MOUSE) return;
     DEBUG("xcb: enter notify");
     client *c = wintoclient(ev->event);
-    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !dontStealFocus) update_current(c);
+    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !stealFocus) update_current(c);
 }
 
 /* find and focus the client which received
@@ -726,8 +726,8 @@ void maprequest(xcb_generic_event_t *e) {
     DEBUGP("transient: %d\n", c->istransient);
     DEBUGP("floating:  %d\n", c->isfloating);
 
-    if (c->isfloating) dontStealFocus = 1U;
-    else { c->isfloating = 0; dontStealFocus = 0U; }
+    if (c->isfloating) stealFocus = 1U;
+    else { c->isfloating = 0; stealFocus = 0U; }
 
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
@@ -816,6 +816,7 @@ void mousemotion(const Arg *arg) {
             case XCB_BUTTON_PRESS:
             case XCB_BUTTON_RELEASE:
                 ungrab = true;
+            default: break;
         }
     } while(!ungrab && current);
     DEBUG("xcb: ungrab");
