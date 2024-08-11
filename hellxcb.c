@@ -804,12 +804,14 @@ void mousemotion(const Arg *arg) {
                 events[e->response_type & ~0x80](e);
                 break;
             case XCB_MOTION_NOTIFY:
-                ev = (xcb_motion_notify_event_t*)e;
-                xw = (arg->i == MOVE ? winx : winw) + ev->root_x - mx;
-                yh = (arg->i == MOVE ? winy : winh) + ev->root_y - my;
-                if (arg->i == RESIZE) xcb_resize(dis, current->win, xw>MINWSZ?xw:winw, yh>MINWSZ?yh:winh);
-                else if (arg->i == MOVE) xcb_move(dis, current->win, xw, yh);
-                xcb_flush(dis);
+                {
+                    ev = (xcb_motion_notify_event_t*)e;
+                    xw = (arg->i == MOVE ? winx : winw) + ev->root_x - mx;
+                    yh = (arg->i == MOVE ? winy : winh) + ev->root_y - my;
+                    if (arg->i == RESIZE) xcb_resize(dis, current->win, xw>MINWSZ?xw:winw, yh>MINWSZ?yh:winh);
+                    else if (arg->i == MOVE) xcb_move(dis, current->win, xw, yh);
+                    xcb_flush(dis);
+                }
                 break;
             case XCB_KEY_PRESS:
             case XCB_KEY_RELEASE:
