@@ -20,9 +20,6 @@ where the slave clients (the smaller "windows") are tiled beneath the master.
 .I Grid mode
 where, once there are four or more cliens in a workspace, they are all
 equally divided into a grid.
-.I Monocle mode
-or fullscreen mode, where the clients take up the entire workspace, and additional
-clients are hidden behind the current shown window.
 .I Floating mode
 where, windows can move and be resized freely in the screen space. Windows
 retain their floating status until the user switches to a tiling mode.
@@ -34,6 +31,7 @@ prints version information to standard output, then exits.
 .SS Status bar
 hellxcb does not provide a status bar. Consistent with the Unix philosophy,
 hellxcb provides information to the status bar or panel of choice via text.
+The program outputs it's content about currently used tag, used mode and counting all opened windows in the currently used tag. All of the output is written to HELLXCB_TAG_AND_MODE in config.h .
 .SS Keyboard and mouse commands
 All of
 .I mhellxcb's
@@ -55,14 +53,14 @@ Toggles the panel on and off.
 .B Mod1\-Shift\-t
 Sets tiled layout.
 .TP
-.B Mod1\-Shift\-m
-Sets monocle layout.
-.TP
 .B Mod1\-Shift\-b
 Sets bottom stack layout
 .TP
 .B Mod1\-Shift\-g
 Sets grid layout
+.TP
+.B Mod1\-Shift\-y
+Cycle thru all layouts
 .TP
 .B Mod1\-j
 Focus next window.
@@ -124,9 +122,7 @@ will bring up
 .TP
 .SH CUSTOMIZATION
 .I hellxcb
-is customized by copying
-.I config.def.h
-to
+is customized by editing
 .I config.h
 and (re)compiling the source code.
 .SH SEE ALSO
@@ -135,5 +131,6 @@ and (re)compiling the source code.
 .I hellxcb
 is under active development. Please report all bugs to the author.
 .SH AUTHOR
+su8 https://github.com/su8
 Ivan Kanakarakis <ivan.kanak at gmail.com>
 Jari Vetoniemi <cloudef at cloudef.eu>
