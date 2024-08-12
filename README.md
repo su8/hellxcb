@@ -40,7 +40,7 @@ Fill bugs only on hellxcb, when you are sure the bug doesn't occur on [monsterwm
    [monsterwm-bug]: https://github.com/c00kiemon5ter/monsterwm/issues
    [monsterwm-xcb-bug]: https://github.com/Cloudef/monsterwm-xcb/issues
 
-Count windows in all tags/workspace
+Count all windows in all tags/workspace
 ---
 
 ```c
@@ -53,11 +53,6 @@ static unsigned int workspaces[][2] = { {0, 0}, {0, 0}, {0, 0}, {0, 0}};
     workspaces[2][1] = 0U;
     workspaces[3][1] = 0U;
 ...
-
-    for (client *c=head; c; c=c->next) {
-        if (c->isfloating) continue;
-        if (ISFFT(c)) continue; else { ++i; numOfWindows++; workspaces[0][1]++; workspaces[1][1]++; workspaces[2][1]++; workspaces[3][1]++; }
-    }
     for (unsigned int x = 0; x < DESKTOPS; x++) {
         for (client *c=head; c; c=c->next) {
             if (c) continue;
@@ -70,7 +65,7 @@ static unsigned int workspaces[][2] = { {0, 0}, {0, 0}, {0, 0}, {0, 0}};
 }
 
 ...
-// inside of select_desktop
+// inside of `select_desktop'
 fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] [tag win: %u] [dev win: %u] [misc win: %u] [float win: %u]", i + 1, styles_arr[mode], numOfWindows, workspaces[0][1], workspaces[1][1], workspaces[2][1], workspaces[3][1]);
 ...
 
