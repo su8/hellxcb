@@ -802,10 +802,10 @@ void mousemotion(const Arg *arg) {
         while(!(e = xcb_wait_for_event(dis))) xcb_flush(dis);
         switch (e->response_type & ~0x80) {
             case XCB_CONFIGURE_REQUEST: case XCB_MAP_REQUEST:
-                {
-                    events[e->response_type & ~0x80](e);
-                    moveResizeDetected = 0U;
-                }
+            {
+                events[e->response_type & ~0x80](e);
+                moveResizeDetected = 0U;
+            }
                 break;
             case XCB_MOTION_NOTIFY:
             {
@@ -821,10 +821,10 @@ void mousemotion(const Arg *arg) {
             case XCB_KEY_RELEASE:
             case XCB_BUTTON_PRESS:
             case XCB_BUTTON_RELEASE:
-                {
-                    ungrab = true;
-                    moveResizeDetected = 0U;
-                }
+            {
+                ungrab = true;
+                moveResizeDetected = 0U;
+            }
                 break;
             default: break;
         }
