@@ -819,8 +819,10 @@ void mousemotion(const Arg *arg) {
             case XCB_KEY_RELEASE:
             case XCB_BUTTON_PRESS:
             case XCB_BUTTON_RELEASE:
-                ungrab = true;
-                moveResizeDetected = 0U;
+                {
+                    ungrab = true;
+                    moveResizeDetected = 0U;
+                }
                 break;
             default: break;
         }
