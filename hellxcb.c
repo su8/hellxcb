@@ -440,11 +440,12 @@ void client_to_desktop(const Arg *arg) {
     xcb_unmap_window(dis, c->win);
     update_current(prevfocus);
 
-    if (FOLLOW_WINDOW) change_desktop(arg); else tile();
-    desktopinfo();
-    //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
+   //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
     workspaces[arg->i][1]++; 
     workspaces[currentworkspace][1]--;
+
+    if (FOLLOW_WINDOW) change_desktop(arg); else tile();
+    desktopinfo();
 }
 
 /* To change the state of a mapped window, a client MUST
