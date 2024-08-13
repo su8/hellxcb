@@ -440,8 +440,9 @@ void client_to_desktop(const Arg *arg) {
     xcb_unmap_window(dis, c->win);
     update_current(prevfocus);
 
+    for (client *c2=head; c2; c2=c2->next) if (c2) continue; workspaces[arg->i][1]++;
     if (FOLLOW_WINDOW) change_desktop(arg); else tile();
-    for (client *c2=head; c2; c2=c2->next) workspaces[arg->i][1]++;
+    //workspaces[arg->i][1]--;
     desktopinfo();
 }
 
