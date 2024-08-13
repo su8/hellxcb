@@ -442,7 +442,7 @@ void client_to_desktop(const Arg *arg) {
 
     for (client *c2=head; c2; c2=c2->next) if (c2) continue; workspaces[arg->i][1]++;
     if (FOLLOW_WINDOW) change_desktop(arg); else tile();
-    //workspaces[arg->i][1]--;
+    workspaces[currentworkspace][1]--;
     desktopinfo();
 }
 
