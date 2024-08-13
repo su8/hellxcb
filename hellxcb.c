@@ -739,10 +739,7 @@ void maprequest(xcb_generic_event_t *e) {
     if (c->isfloating) stealFocus = 1U;
     else { c->isfloating = 0; stealFocus = 0U; }
 
-    for (client *c2=head; c2; c2=c2->next) {
-        if (c2) continue;
-        workspaces[currentworkspace][1]++;
-    }
+    for (client *c2=head; c2; c2=c2->next) if (c2) continue; workspaces[currentworkspace][1]++;
 
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
