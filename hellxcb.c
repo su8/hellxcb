@@ -55,6 +55,7 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
+static unsigned int currentworkspace = 0U; /* to count how many windows are opened in all tags/workspaces */
 static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using the manual resizing/moving a window, this variable is used as flag to set wheter it will steal the focus from another window or not */
 static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
 static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
@@ -389,6 +390,8 @@ void buttonpress(xcb_generic_event_t *e) {
  * first all others then the current */
 void change_desktop(const Arg *arg) {
     numOfWindows = 0U;
+    workspaces[arg->i][1] = 0U;
+    currentworkspace = arg->i;
     if (arg->i == current_desktop) return;
     previous_desktop = current_desktop;
     select_desktop(arg->i);
@@ -398,6 +401,7 @@ void change_desktop(const Arg *arg) {
     for (client *c=head; c; c=c->next) if (c != current) xcb_unmap_window(dis, c->win);
     if (current) xcb_unmap_window(dis, current->win);
     select_desktop(arg->i);
+    for (client *c2=head; c2; c2=c2->next) workspaces[arg->i][1]++;
     tile(); update_current(current);
     desktopinfo();
 }
@@ -614,6 +618,7 @@ void grabkeys(void) {
 /* arrange windows in a grid */
 void grid(int hh, int cy) {
     numOfWindows = 0U;
+    workspaces[currentworkspace][1] = 0U;
     int n = 0, cols = 0, cn = 0, rn = 0, i = -1;
     for (client *c = head; c; c=c->next) if (!ISFFT(c)) ++n;
     for (cols=0; cols <= n/2; cols++) if (cols*cols >= n) break; /* emulate square root */
@@ -622,7 +627,7 @@ void grid(int hh, int cy) {
     int rows = n/cols, ch = hh - BORDER_WIDTH, cw = (ww - BORDER_WIDTH)/(cols?cols:1);
     for (client *c=head; c; c=c->next) {
         if (c->isfloating) continue;
-        if (ISFFT(c)) continue; else { ++i; numOfWindows++; }
+        if (ISFFT(c)) continue; else { ++i; numOfWindows++; workspaces[currentworkspace][1]++; }
         if (i/rows + 1 > cols - n%cols) rows = n/cols + 1;
         xcb_move_resize(dis, c->win, cn*cw, cy + rn*ch/rows, cw - BORDER_WIDTH, ch/rows - BORDER_WIDTH);
         if (++rn >= rows) { rn = 0; cn++; }
@@ -654,6 +659,7 @@ void killclient() {
     else xcb_kill_client(dis, current->win);
     removeclient(current);
     numOfWindows == 1 ? numOfWindows-- : 0;
+    workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
 }
 
 /* focus the previously focused desktop */
@@ -729,6 +735,11 @@ void maprequest(xcb_generic_event_t *e) {
 
     if (c->isfloating) stealFocus = 1U;
     else { c->isfloating = 0; stealFocus = 0U; }
+
+    for (client *c2=head; c2; c2=c2->next) {
+        if (c2) continue;
+        workspaces[currentworkspace][1]++;
+    }
 
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
@@ -1048,7 +1059,7 @@ void select_desktop(int i) {
     prevfocus       = desktops[i].prevfocus;
     current_desktop = i;
     if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open a text file to output some data."); return; }
-    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u]", i + 1, styles_arr[mode], numOfWindows);
+    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] [web win: %u] [dev win: %u] [misc win: %u] [float win: %u]", i + 1, styles_arr[mode], numOfWindows, workspaces[0][1], workspaces[1][1], workspaces[2][1], workspaces[3][1]);
     (void)fclose(fp);
 }
 
@@ -1159,11 +1170,12 @@ void spawn(const Arg *arg) {
 /* arrange windows in normal or bottom stack tile */
 void stack(int hh, int cy) {
     numOfWindows = 1U;
+    workspaces[currentworkspace][1] = 1U;
     client *c = NULL, *t = NULL; bool b = mode == BSTACK;
     int n = 0, d = 0, z = b ? ww:hh, ma = (mode == BSTACK ? wh:ww) * MASTER_SIZE + master_size;
 
     /* count stack windows and grab first non-floating, non-fullscreen window */
-    for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) { ++n; numOfWindows++; } else c = t; }
+    for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) { ++n; numOfWindows++; workspaces[currentworkspace][1]++; } else c = t; }
 
     /* if there is only one window, it should cover the available screen space
      * if there is only one stack window (n == 1) then we don't care about growth
