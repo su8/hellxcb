@@ -441,6 +441,7 @@ void client_to_desktop(const Arg *arg) {
     update_current(prevfocus);
 
     if (FOLLOW_WINDOW) change_desktop(arg); else tile();
+    for (client *c2=head; c2; c2=c2->next) workspaces[arg->i][1]++;
     desktopinfo();
 }
 
