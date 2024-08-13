@@ -62,8 +62,14 @@ static unsigned int workspaces[][2] = { {0, 0}, {0, 0}, {0, 0}, {0, 0}};
         //change_desktop(&(Arg){.i = x});
         //select_desktop(x);
     }
-}
-
+...
+/* inside change_desktop() */
+    // at top of the function
+    workspaces[arg->i][1] = 0U;
+    // right below select_desktop(arg->i);
+    for (client *c2=head; c2; c2=c2->next) {
+        workspaces[arg->i][1]++;
+    }}
 ...
 // inside of `select_desktop'
 fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] [tag win: %u] [dev win: %u] [misc win: %u] [float win: %u]", i + 1, styles_arr[mode], numOfWindows, workspaces[0][1], workspaces[1][1], workspaces[2][1], workspaces[3][1]);
