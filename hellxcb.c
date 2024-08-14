@@ -440,10 +440,10 @@ void client_to_desktop(const Arg *arg) {
     xcb_unmap_window(dis, c->win);
     update_current(prevfocus);
 
-   //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
+    //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
     workspaces[arg->i][1]++; 
-    workspaces[currentworkspace][1]--;
-
+    numOfWindows = 0U;
+    workspaces[currentworkspace][1] = 0U;
     if (FOLLOW_WINDOW) change_desktop(arg); else tile();
     desktopinfo();
 }
@@ -501,7 +501,6 @@ void cycle_mode(const Arg *arg) {
     for (client *c=head; c; c=c->next) c->isfloating = False;
     if (x >= 3U) x = 0U;
     mode = x++;
-
     tile(); update_current(current);
     desktopinfo();
 }
@@ -663,7 +662,7 @@ void killclient() {
     if (got) deletewindow(current->win);
     else xcb_kill_client(dis, current->win);
     removeclient(current);
-    numOfWindows == 1 ? numOfWindows-- : 0;
+    numOfWindows == 1U ? numOfWindows-- : 0;
     workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
 }
 
