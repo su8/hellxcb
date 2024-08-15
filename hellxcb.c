@@ -55,7 +55,7 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
-static unsigned int workspaces[][2] = { {0U, 0U}, {0U, 0U}, {0U, 0U}, {0U, 0U}}; /* show how many windows are opened in all tags/workspaces */
+static unsigned int workspaces[10][2] = { {0U, 0U} }; /* show how many windows are opened in all tags/workspaces */
 static unsigned int currentworkspace = 0U; /* to count how many windows are opened in all tags/workspaces */
 static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using the manual resizing/moving a window, this variable is used as flag to set wheter it will steal the focus from another window or not */
 static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
@@ -535,7 +535,8 @@ void desktopinfo(void) {
     int cd = current_desktop, n=0, d=0;
     for (client *c; d<DESKTOPS; d++) {
         for (select_desktop(d), c=head, n=0, urgent=false; c; c=c->next, ++n) if (c->isurgent) urgent = true;
-        fprintf(stdout, "%d:%d:%d:%d:%d%c", d, n, mode, current_desktop == cd, urgent, d+1==DESKTOPS?'\n':' ');
+        ;
+        //fprintf(stdout, "%d:%d:%d:%d:%d%c", d, n, mode, current_desktop == cd, urgent, d+1==DESKTOPS?'\n':' ');
     }
     fflush(stdout);
     if (cd != d-1) select_desktop(cd);
@@ -1048,7 +1049,9 @@ void save_desktop(int i) {
 /* set the specified desktop's properties */
 void select_desktop(int i) {
     static FILE *fp = NULL;
-    static char *styles_arr[] = { "tile", "bstack", "grid"};
+    char str[256] = {'\0'};
+    char *strPtr = str;
+    static const char *styles_arr[] = { "tile", "bstack", "grid"};
     if (i < 0 || i >= DESKTOPS) return;
     save_desktop(current_desktop);
     master_size     = desktops[i].master_size;
@@ -1059,8 +1062,10 @@ void select_desktop(int i) {
     showpanel       = desktops[i].showpanel;
     prevfocus       = desktops[i].prevfocus;
     current_desktop = i;
+    for (unsigned int x = 0; x < DESKTOPS; x++) strPtr += snprintf(strPtr, 256, "[tag %u win: %u] ", x + 1, workspaces[x][1]);
+    *(--strPtr) = '\0';
     if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open a text file to output some data."); return; }
-    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] [web win: %u] [dev win: %u] [misc win: %u] [float win: %u]", i + 1, styles_arr[mode], numOfWindows, workspaces[0][1], workspaces[1][1], workspaces[2][1], workspaces[3][1]);
+    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] %s", i + 1, styles_arr[mode], numOfWindows, str);
     (void)fclose(fp);
 }
 
