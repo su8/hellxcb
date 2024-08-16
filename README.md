@@ -25,6 +25,18 @@ To have mouse cursor, open up `.xinitrc` and append somewhere before the `case` 
 
 The statusline in the picture above is made of https://github.com/su8/doomy . You can use `sed` to make a named tag/workspace from `/tmp/hellxcb.txt` , just use `cat /tmp/hellxcb.txt | sed -E 's/tag: 1/tag: web/g; s/tag: 2/tag: dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g; s/tag 1/web/g; s/tag 2/dev/g; s/tag 3/misc/g; s/tag 4/float/g;'` and redirect it `/tmp/doomy.txt` if you use https://github.com/su8/doomy
 
+To hide/show some windows, you can have drop down terminal:
+
+```c
+static void hide_show(const Arg *arg) {
+    (void)arg;
+    static unsigned int show = 0U;
+    static xcb_window_t curwin;
+    if (show = !show) { curwin = head->win; xcb_unmap_window(dis, curwin); }
+    else { xcb_map_window(dis, curwin); xcb_move_resize(dis, curwin, 0, 0, 0, 0); }
+}
+```
+
 The packages needed for example would be
 `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` 
 
