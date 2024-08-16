@@ -55,6 +55,7 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
+static char wmName[256] = {'\0'};
 static unsigned int workspaces[10][2] = { {0U, 0U} }; /* show how many windows are opened in all tags/workspaces */
 static unsigned int currentworkspace = 0U; /* to count how many windows are opened in all tags/workspaces */
 static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using the manual resizing/moving a window, this variable is used as flag to set wheter it will steal the focus from another window or not */
@@ -533,6 +534,7 @@ void deletewindow(xcb_window_t w) {
 void desktopinfo(void) {
     bool urgent = false;
     int cd = current_desktop, n=0, d=0;
+
     for (client *c; d<DESKTOPS; d++) {
         for (select_desktop(d), c=head, n=0, urgent=false; c; c=c->next, ++n) if (c->isurgent) urgent = true;
         ;
@@ -663,6 +665,7 @@ void killclient() {
     if (got) deletewindow(current->win);
     else xcb_kill_client(dis, current->win);
     removeclient(current);
+    snprintf(wmName, sizeof(wmName) - 1, "%s", "");
     numOfWindows == 1U ? numOfWindows-- : 0;
     workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
 }
@@ -706,6 +709,7 @@ void maprequest(xcb_generic_event_t *e) {
                 floating = rules[i].floating;
                 break;
             }
+        snprintf(wmName, sizeof(wmName) - 1, "%s", ch.class_name);
         xcb_icccm_get_wm_class_reply_wipe(&ch);
     }
 
@@ -1065,7 +1069,7 @@ void select_desktop(int i) {
     for (unsigned int x = 0; x < DESKTOPS; x++) strPtr += snprintf(strPtr, 256, "[tag %u win: %u] ", x + 1, workspaces[x][1]);
     *(--strPtr) = '\0';
     if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open a text file to output some data."); return; }
-    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] %s", i + 1, styles_arr[mode], numOfWindows, str);
+    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] %s [title: %s]", i + 1, styles_arr[mode], numOfWindows, str, wmName);
     (void)fclose(fp);
 }
 
