@@ -28,6 +28,10 @@ The statusline in the picture above is made of https://github.com/su8/doomy . Yo
 To hide/show some windows, you can have drop down terminal:
 
 ```c
+// config.h
+{  MOD4,             XK_z,          hide_show,             {NULL}},
+
+// hellxcb.c
 static void hide_show(const Arg *arg) {
     (void)arg;
     static unsigned int show = 0U;
