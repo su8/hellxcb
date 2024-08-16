@@ -29,6 +29,7 @@ To hide/show some windows, you can have drop down terminal:
 
 ```c
 // config.h
+// AppRule rules[] add your terminal and make it floating
 {  MOD4,             XK_z,          hide_show,             {NULL}},
 
 // hellxcb.c
@@ -36,6 +37,7 @@ static void hide_show(const Arg *arg) {
     (void)arg;
     static unsigned int show = 0U;
     static xcb_window_t curwin;
+    if (!current) return;
     if (show = !show) { curwin = head->win; xcb_unmap_window(dis, curwin); }
     else { xcb_map_window(dis, curwin); xcb_move_resize(dis, curwin, 0, 0, 0, 0); }
 }
