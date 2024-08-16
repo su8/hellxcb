@@ -55,7 +55,7 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
-static char wmName[256] = {'\0'};
+static char wmName[256] = {'\0'}; /* show the current window title */
 static unsigned int workspaces[10][2] = { {0U, 0U} }; /* show how many windows are opened in all tags/workspaces */
 static unsigned int currentworkspace = 0U; /* to count how many windows are opened in all tags/workspaces */
 static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using the manual resizing/moving a window, this variable is used as flag to set wheter it will steal the focus from another window or not */
