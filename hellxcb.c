@@ -534,7 +534,6 @@ void deletewindow(xcb_window_t w) {
 void desktopinfo(void) {
     bool urgent = false;
     int cd = current_desktop, n=0, d=0;
-
     for (client *c; d<DESKTOPS; d++) {
         for (select_desktop(d), c=head, n=0, urgent=false; c; c=c->next, ++n) if (c->isurgent) urgent = true;
         ;
@@ -665,7 +664,7 @@ void killclient() {
     if (got) deletewindow(current->win);
     else xcb_kill_client(dis, current->win);
     removeclient(current);
-    snprintf(wmName, sizeof(wmName) - 1, "%s", "");
+    wmName[0] = '\0';
     numOfWindows == 1U ? numOfWindows-- : 0;
     workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
 }
@@ -1069,7 +1068,7 @@ void select_desktop(int i) {
     for (unsigned int x = 0; x < DESKTOPS; x++) strPtr += snprintf(strPtr, 256, "[tag %u win: %u] ", x + 1, workspaces[x][1]);
     *(--strPtr) = '\0';
     if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open a text file to output some data."); return; }
-    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] %s [title: %s]", i + 1, styles_arr[mode], numOfWindows, str, wmName);
+    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] %s", i + 1, styles_arr[mode], numOfWindows, str);
     (void)fclose(fp);
 }
 
