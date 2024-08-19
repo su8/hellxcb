@@ -52,6 +52,8 @@ If on **Debian**, https://github.com/su8/hellxcb/blob/a688a8a25f82c0533e8bd38f53
 
 For FreeBSD the packages are `gcc` `xorg` `gmake` `chromium` `git` `gawk` `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysyms` `pkgconf`
 
+For NetBSD the packages are `clang` `gmake` `firefox` `git` `gawk` `xcb` `xcb-util` `xcb-util-wm` `xcb-util-keysyms` `pkg-config` and **full desktop with X11** installed on your system.
+
 Bugs
 ----
 
