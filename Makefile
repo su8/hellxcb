@@ -38,18 +38,18 @@ all:
 	$(CC) $(CFLAGS) $(INCS) $(LDFLAGS) -o $(PACKAGE) $(PROG)
 
 clean:
-	@echo cleaning
-	@rm -fv ${WMNAME} ${OBJ} ${WMNAME}-${VERSION}.tar.gz
-	@rm -f $(PACKAGE)
+	echo cleaning
+	rm -fv ${WMNAME} ${OBJ} ${WMNAME}-${VERSION}.tar.gz
+	rm -f $(PACKAGE)
 
 install:
-	@install -D -s -m 755 $(PACKAGE) /usr/bin/$(PACKAGE)
-	@echo installing manual page to ${DESTDIR}${MANPREFIX}/man.1
-	@install -Dm644 ${WMNAME}.1 ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
+	install -D -s -m 755 $(PACKAGE) /usr/bin/$(PACKAGE)
+	echo installing manual page to ${DESTDIR}${MANPREFIX}/man.1
+	install -Dm644 ${WMNAME}.1 ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
 
 uninstall:
-	@echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
-	@rm -f ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
-	@rm -f /usr/bin/$(PACKAGE)
+	echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
+	rm -f ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
+	rm -f /usr/bin/$(PACKAGE)
 
 .PHONY: all clean install uninstall
