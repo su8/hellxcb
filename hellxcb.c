@@ -55,7 +55,6 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
-static char wmName[256] = {'\0'}; /* show the current window title */
 static unsigned int workspaces[10][2] = { {0U, 0U} }; /* show how many windows are opened in all tags/workspaces */
 static unsigned int currentworkspace = 0U; /* to count how many windows are opened in all tags/workspaces */
 static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using the manual resizing/moving a window, this variable is used as flag to set wheter it will steal the focus from another window or not */
@@ -223,7 +222,7 @@ static xcb_connection_t *dis;
 static xcb_screen_t *screen;
 static client *head, *prevfocus, *current;
 
-static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT], atomstr[256];
+static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
 static desktop desktops[DESKTOPS];
 
 /* events array
@@ -1116,8 +1115,6 @@ int setup_keyboard(void)
 
     return 0;
 }
-
-
 
 /* set initial values
  * root window - screen height/width - atoms - xerror handler
