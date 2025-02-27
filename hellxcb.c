@@ -665,13 +665,13 @@ void killclient() {
     if (got) deletewindow(current->win);
     else xcb_kill_client(dis, current->win);
     removeclient(current);
-    wmName[0] = '\0';
+    //wmName[0] = '\0';
     numOfWindows == 1U ? numOfWindows-- : 0;
     prevworkspace = currentworkspace;
     workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
-    change_desktop(&(Arg){.i = 1}); tile();
-    change_desktop(&(Arg){.i = 2}); tile();
-    change_desktop(&(Arg){.i = prevworkspace}); tile();
+    change_desktop(&(Arg){.i = 0});
+    change_desktop(&(Arg){.i = 1});
+    change_desktop(&(Arg){.i = prevworkspace});
 }
 
 /* focus the previously focused desktop */
