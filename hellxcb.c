@@ -669,8 +669,7 @@ void killclient() {
     numOfWindows == 1U ? numOfWindows-- : 0;
     prevworkspace = currentworkspace;
     workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
-    change_desktop(&(Arg){.i = 0});
-    change_desktop(&(Arg){.i = 1});
+    change_desktop(&(Arg){.i = (currentworkspace == 0 ? 1 : 0)});
     change_desktop(&(Arg){.i = prevworkspace});
 }
 
