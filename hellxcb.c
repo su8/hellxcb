@@ -61,6 +61,7 @@ static unsigned int currentworkspace = 0U; /* to count how many windows are open
 static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using the manual resizing/moving a window, this variable is used as flag to set wheter it will steal the focus from another window or not */
 static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
 static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
+static unsigned int prevworkspace = 1U; /* used to count the number of opened windows and workaround the problem when there is only 1 window as it was showing 0 in the past */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
 static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
@@ -157,7 +158,7 @@ typedef struct {
     const bool follow, floating;
 } AppRule;
 
- /* function prototypes sorted alphabetically */
+/* function prototypes sorted alphabetically */
 static void aDontStealFocus(const Arg *arg);
 static client* addwindow(xcb_window_t w);
 static void buttonpress(xcb_generic_event_t *e);
@@ -222,7 +223,7 @@ static xcb_connection_t *dis;
 static xcb_screen_t *screen;
 static client *head, *prevfocus, *current;
 
-static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
+static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT], atomstr[256];
 static desktop desktops[DESKTOPS];
 
 /* events array
@@ -316,6 +317,7 @@ static void xcb_get_atoms(char **names, xcb_atom_t *atoms, unsigned int count) {
         reply = xcb_intern_atom_reply(dis, cookies[i], NULL); /* TODO: Handle error */
         if (reply) {
             DEBUGP("%s : %d\n", names[i], reply->atom);
+            //printf("%.*s\n", names[i]);
             atoms[i] = reply->atom; free(reply);
         } else puts("WARN: hellxcb failed to register %s atom.\nThings might not work right.");
     }
@@ -666,7 +668,11 @@ void killclient() {
     removeclient(current);
     wmName[0] = '\0';
     numOfWindows == 1U ? numOfWindows-- : 0;
+    prevworkspace = currentworkspace;
     workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
+    change_desktop(&(Arg){.i = 1}); tile();
+    change_desktop(&(Arg){.i = 2}); tile();
+    change_desktop(&(Arg){.i = prevworkspace}); tile();
 }
 
 /* focus the previously focused desktop */
@@ -708,7 +714,7 @@ void maprequest(xcb_generic_event_t *e) {
                 floating = rules[i].floating;
                 break;
             }
-        snprintf(wmName, sizeof(wmName) - 1, "%s", ch.class_name);
+        //snprintf(wmName, sizeof(wmName) - 1, "%s", ch.class_name);
         xcb_icccm_get_wm_class_reply_wipe(&ch);
     }
 
@@ -1110,6 +1116,8 @@ int setup_keyboard(void)
 
     return 0;
 }
+
+
 
 /* set initial values
  * root window - screen height/width - atoms - xerror handler
