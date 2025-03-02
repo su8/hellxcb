@@ -23,6 +23,7 @@ MA 02110-1301, USA.
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <pthread.h>
 #include <sys/wait.h>
 #include <X11/keysym.h>
 #include <xcb/xcb.h>
@@ -62,6 +63,7 @@ static unsigned int numOfWindows = 0U; /* count how many windows are in the curr
 static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
 static unsigned int prevworkspace = 1U; /* used to count the number of opened windows and workaround the problem when there is only 1 window as it was showing 0 in the past */
 static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering/clicking the left mouse button around each window */
+static unsigned int randomRGBclick[3] = {0U}; /* show different colour when hovering/clicking the left mouse button around each window */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
 static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
@@ -159,6 +161,7 @@ typedef struct {
 } AppRule;
 
 /* function prototypes sorted alphabetically */
+static void *clickToChangeColour(void *s);
 static void aDontStealFocus(const Arg *arg);
 static client* addwindow(xcb_window_t w);
 static void buttonpress(xcb_generic_event_t *e);
@@ -208,7 +211,7 @@ static void swap_master();
 static void switch_mode(const Arg *arg);
 static void tile(void);
 static void togglepanel();
-static void update_current(client *c);
+static void update_current(client *c, unsigned short int onClickColourChange);
 static void unmapnotify(xcb_generic_event_t *e);
 static client* wintoclient(xcb_window_t w);
 
@@ -370,12 +373,12 @@ void buttonpress(xcb_generic_event_t *e) {
 
     client *c = wintoclient(ev->event);
     if (!c) return;
-    if (CLICK_TO_FOCUS && current != c && ev->detail == XCB_BUTTON_INDEX_1) update_current(c);
+    if (CLICK_TO_FOCUS && current != c && ev->detail == XCB_BUTTON_INDEX_1) update_current(c, 0);
 
     for (unsigned int i=0; i<LENGTH(buttons); i++)
         if (buttons[i].func && buttons[i].button == ev->detail &&
             CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state)) {
-            if (current != c) update_current(c);
+            if (current != c) update_current(c, 0);
             buttons[i].func(&(buttons[i].arg));
         }
 
@@ -406,7 +409,7 @@ void change_desktop(const Arg *arg) {
     if (current) xcb_unmap_window(dis, current->win);
     select_desktop(arg->i);
     for (client *c2=head; c2; c2=c2->next) workspaces[arg->i][1]++;
-    tile(); update_current(current);
+    tile(); update_current(current, 0);
     desktopinfo();
 }
 
@@ -435,13 +438,13 @@ void client_to_desktop(const Arg *arg) {
 
     select_desktop(arg->i);
     client *l = prev_client(head);
-    update_current(l ? (l->next = c):head ? (head->next = c):(head = c));
+    update_current(l ? (l->next = c):head ? (head->next = c):(head = c), 0);
 
     select_desktop(cd);
     if (c == head || !p) head = c->next; else p->next = c->next;
     c->next = NULL;
     xcb_unmap_window(dis, c->win);
-    update_current(prevfocus);
+    update_current(prevfocus, 0);
 
     //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
     workspaces[arg->i][1]++; 
@@ -469,7 +472,7 @@ void clientmessage(xcb_generic_event_t *e) {
           ||  (unsigned)ev->data.data32[2] == netatoms[NET_FULLSCREEN]))
         setfullscreen(c, (ev->data.data32[0] == 1 || (ev->data.data32[0] == 2 && !c->isfullscrn)));
     else if (c && ev->type == netatoms[NET_ACTIVE]) for (t=head; t && t!=c; t=t->next);
-    if (t) update_current(c);
+    if (t) update_current(c, 0);
     tile();
 }
 
@@ -504,7 +507,7 @@ void cycle_mode(const Arg *arg) {
     for (client *c=head; c; c=c->next) c->isfloating = False;
     if (x >= 3U) x = 0U;
     mode = x++;
-    tile(); update_current(current);
+    tile(); update_current(current, 0);
     desktopinfo();
 }
 
@@ -564,7 +567,7 @@ void enternotify(xcb_generic_event_t *e) {
     if (!FOLLOW_MOUSE) return;
     DEBUG("xcb: enter notify");
     client *c = wintoclient(ev->event);
-    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !stealFocus) update_current(c);
+    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !stealFocus) update_current(c, 0);
 }
 
 /* find and focus the client which received
@@ -573,10 +576,10 @@ void focusurgent() {
     client *c;
     int cd = current_desktop, d = 0;
     for (c=head; c && !c->isurgent; c=c->next);
-    if (c) { update_current(c); return; }
+    if (c) { update_current(c, 0); return; }
     else for (bool f=false; d<DESKTOPS && !f; d++) for (select_desktop(d), c=head; c && !(f=c->isurgent); c=c->next);
     select_desktop(cd);
-    if (c) { change_desktop(&(Arg){.i = --d}); update_current(c); }
+    if (c) { change_desktop(&(Arg){.i = --d}); update_current(c, 0); }
 }
 
 /* get a pixel with the requested color
@@ -752,8 +755,8 @@ void maprequest(xcb_generic_event_t *e) {
     //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
 
     if (cd != newdsk) select_desktop(cd);
-    if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
-    else if (follow) { change_desktop(&(Arg){.i = newdsk}); update_current(c); }
+    if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c, 0); }
+    else if (follow) { change_desktop(&(Arg){.i = newdsk}); update_current(c, 0); }
     grabbuttons(c);
 
     desktopinfo();
@@ -812,7 +815,7 @@ void mousemotion(const Arg *arg) {
 
     if (current->isfullscrn) setfullscreen(current, False);
     if (!current->isfloating && moveResizeDetected == 1U) current->isfloating = True;
-    tile(); update_current(current);
+    tile(); update_current(current, 0);
 
     xcb_generic_event_t *e = NULL;
     xcb_motion_notify_event_t *ev = NULL;
@@ -939,7 +942,7 @@ void move_up() {
  * if the window is the last on stack, focus head */
 void next_win() {
     if (!current || !head->next) return;
-    update_current(current->next ? current->next:head);
+    update_current(current->next ? current->next:head, 0);
 }
 
 /* get the previous client from the given
@@ -954,7 +957,7 @@ client* prev_client(client *c) {
  * if the window is the head, focus the last stack window */
 void prev_win() {
     if (!current || !head->next) return;
-    update_current(prev_client(prevfocus = current));
+    update_current(prev_client(prevfocus = current), 0);
 }
 
 /* property notify is called when one of the window's properties
@@ -995,7 +998,7 @@ void removeclient(client *c) {
         for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
     *p = c->next;
     if (c == prevfocus) prevfocus = prev_client(current);
-    if (c == current || !head->next) update_current(prevfocus);
+    if (c == current || !head->next) update_current(prevfocus, 0);
     free(c); c = NULL;
     if (cd == nd -1) tile(); else select_desktop(cd);
 }
@@ -1084,7 +1087,7 @@ void setfullscreen(client *c, bool fullscrn) {
     if (fullscrn != c->isfullscrn) xcb_change_property(dis, XCB_PROP_MODE_REPLACE, c->win, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, fullscrn, data);
     if ((c->isfullscrn = fullscrn)) xcb_move_resize(dis, c->win, 0, 0, ww, wh + PANEL_HEIGHT);
     xcb_border_width(dis, c->win, (!head->next || c->isfullscrn || BORDER_WIDTH));
-    update_current(c);
+    update_current(c, 0);
 }
 
 /* get numlock modifier using xcb */
@@ -1116,6 +1119,14 @@ int setup_keyboard(void)
     return 0;
 }
 
+/* detached thread to swa[ the active window border colour ]*/
+static void *clickToChangeColour(void *s) {
+    (void)s;
+    static unsigned int x = 0U;
+    while (x++ <= 3U) { update_current(current, 1); clickToChangeColour(NULL); sleep(1); }
+    x = 0U;
+}
+
 /* set initial values
  * root window - screen height/width - atoms - xerror handler
  * set masks for reporting events handled by the wm
@@ -1130,11 +1141,17 @@ int setup(int default_screen) {
     wh = screen->height_in_pixels - PANEL_HEIGHT;
     for (unsigned int i=0; i<DESKTOPS; i++) save_desktop(i);
 
-    //win_focus   = getcolor(FOCUS);
-    randomRGB[0] = getcolor(FOCUS_COLOUR1);
-    randomRGB[1] = getcolor(FOCUS_COLOUR2);
-    randomRGB[2] = getcolor(FOCUS_COLOUR3);
-    win_unfocus = getcolor(UNFOCUS);
+    pthread_t th;
+    pthread_create(&th, NULL, clickToChangeColour, NULL);
+    pthread_detach(th);
+
+    randomRGB[0]      = getcolor(FOCUS_COLOUR1);
+    randomRGB[1]      = getcolor(FOCUS_COLOUR2);
+    randomRGB[2]      = getcolor(FOCUS_COLOUR3);
+    randomRGBclick[0] = getcolor(FOCUS_COLOUR1);
+    randomRGBclick[1] = getcolor(FOCUS_COLOUR2);
+    randomRGBclick[2] = getcolor(FOCUS_COLOUR3);
+    win_unfocus       = getcolor(UNFOCUS);
 
     /* setup keyboard */
     if (setup_keyboard() == -1)
@@ -1250,14 +1267,14 @@ void swap_master() {
     if (!current || !head->next) return;
     if (current == head) move_down();
     else while (current != head) move_up();
-    update_current(head);
+    update_current(head, 0);
 }
 
 /* switch the tiling mode and reset all floating windows */
 void switch_mode(const Arg *arg) {
     if (mode == arg->i) for (client *c=head; c; c=c->next) c->isfloating = False;
     mode = arg->i;
-    tile(); update_current(current);
+    tile(); update_current(current, 0);
     desktopinfo();
 }
 
@@ -1299,7 +1316,7 @@ void unmapnotify(xcb_generic_event_t *e) {
  *  - the window is the only window on screen
  *  - the window is fullscreen
  *  - the mode is MONOCLE and the window is not floating or transient */
-void update_current(client *c) {
+void update_current(client *c, unsigned short int onClickColorChange) {
     if (!head) {
         xcb_delete_property(dis, screen->root, netatoms[NET_ACTIVE]);
         current = prevfocus = NULL;
@@ -1311,9 +1328,11 @@ void update_current(client *c) {
     int n = 0, fl = 0, ft = 0;
     for (c = head; c; c = c->next, ++n) if (ISFFT(c)) { fl++; if (!c->isfullscrn) ft++; }
     xcb_window_t w[n];
-    static unsigned int rgb = 0U;
+    static unsigned int rgb = 0U, rgb2 = 0U;
     if (rgb >= 3U) { rgb = 0U; }
-    win_focus = randomRGB[rgb];
+    if (rgb2 >= 3U) { rgb2 = 0U; }
+    if (onClickColorChange == 0) win_focus = randomRGB[rgb];
+    else win_focus = randomRGBclick[rgb2];
     w[(current->isfloating||current->istransient)?0:ft] = current->win;
     for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
         xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
@@ -1322,7 +1341,7 @@ void update_current(client *c) {
         //   screen->root, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_BUTTON_MASK_ANY);
         if (c != current) w[c->isfullscrn ? --fl : ISFFT(c) ? --ft : --n] = c->win;
     }
-    rgb++;
+    onClickColorChange == 0 ? rgb++ : rgb2++;
     /* restack */
     for (ft = 0; ft <= n; ++ft) xcb_raise_window(dis, w[n-ft]);
 
