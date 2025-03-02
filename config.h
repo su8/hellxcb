@@ -34,7 +34,7 @@ MA 02110-1301, USA.
 #define FOLLOW_MOUSE    True      /* Focus the window the mouse just entered */
 #define FOLLOW_WINDOW   False     /* Follow the window when moved to a different desktop */
 #define CLICK_TO_FOCUS  False     /* Focus an unfocused window when clicked */
-#define BORDER_WIDTH    5         /* window border width */
+#define BORDER_WIDTH    2         /* window border width */
 #define UNFOCUS         "#444444" /* unfocused window border color */
 #define DESKTOPS        4         /* number of desktops - edit DESKTOPCHANGE keys to suit */
 #define DEFAULT_DESKTOP 0         /* the desktop to focus on exec */
