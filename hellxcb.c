@@ -427,7 +427,7 @@ void cleanup(void) {
     xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, screen->root, XCB_CURRENT_TIME);
 }
 
-/* detached thread to swa[ the active window border colour ]*/
+/* detached thread to swap the active window border colour when clicking on some window ]*/
 static void *clickToChangeColour(void *s) {
     (void)s;
     static unsigned int x = 0U;
@@ -1146,13 +1146,10 @@ int setup(int default_screen) {
     pthread_create(&th, NULL, clickToChangeColour, NULL);
     pthread_detach(th);
 
-    randomRGB[0]      = getcolor(FOCUS_COLOUR1);
-    randomRGB[1]      = getcolor(FOCUS_COLOUR2);
-    randomRGB[2]      = getcolor(FOCUS_COLOUR3);
-    randomRGBclick[0] = getcolor(FOCUS_COLOUR1);
-    randomRGBclick[1] = getcolor(FOCUS_COLOUR2);
-    randomRGBclick[2] = getcolor(FOCUS_COLOUR3);
-    win_unfocus       = getcolor(UNFOCUS);
+    
+    const char const *colours[] = {FOCUS_COLOUR1, FOCUS_COLOUR2, FOCUS_COLOUR3};
+    for (char z = 0; z < 3; z++) { randomRGB[z] = getcolor(colours[z]); randomRGBclick[z] = getcolor(colours[z]); }
+    win_unfocus = getcolor(UNFOCUS);
 
     /* setup keyboard */
     if (setup_keyboard() == -1)
