@@ -29,7 +29,7 @@ PROG=hellxcb.c
 ADDITIONALFLAGS += -DVERSION=\"${VERSION}\" -DWMNAME=\"${WMNAME}\"
 
 INCS = -I. -I. `pkg-config --cflags xcb xcb-aux xcb-icccm xcb-keysyms xcb-ewmh`
-LIBS = -lX11 -lc `pkg-config --libs xcb xcb-icccm xcb-keysyms`
+LIBS = -lpthread -lX11 -lc `pkg-config --libs xcb xcb-icccm xcb-keysyms`
 
 CFLAGS += ${ADDITIONALFLAGS} -g2 -Wall -Wextra -O2 -I/usr/include/freetype2 -I/usr/X11R6/include -L/usr/X11R6/lib -I/usr/include/X11 -lX11 -lXft -std=c99 -pipe -pedantic -Wundef -Wshadow -W -Wwrite-strings -Wcast-align -Wstrict-overflow=5 -Wconversion -Wpointer-arith -Wstrict-prototypes -Wformat=2 -Wsign-compare -Wendif-labels -Wredundant-decls -Winit-self
 LDFLAGS  += ${LIBS}
