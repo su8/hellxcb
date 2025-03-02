@@ -62,8 +62,8 @@ static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using 
 static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
 static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
 static unsigned int prevworkspace = 1U; /* used to count the number of opened windows and workaround the problem when there is only 1 window as it was showing 0 in the past */
-static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering/clicking the left mouse button around each window */
-static unsigned int randomRGBclick[3] = {0U}; /* show different colour when hovering/clicking the left mouse button around each window */
+static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering the mouse around each window */
+static unsigned int randomRGBclick[3] = {0U}; /* show different colour when clicking the left mouse button in some window */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
 static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
@@ -1331,8 +1331,7 @@ void update_current(client *c, unsigned short int onClickColorChange) {
     static unsigned int rgb = 0U, rgb2 = 0U;
     if (rgb >= 3U) { rgb = 0U; }
     if (rgb2 >= 3U) { rgb2 = 0U; }
-    if (onClickColorChange == 0) win_focus = randomRGB[rgb];
-    else win_focus = randomRGBclick[rgb2];
+    win_focus = (onClickColorChange == 0 ? randomRGB[rgb] : randomRGBclick[rgb2]);
     w[(current->isfloating||current->istransient)?0:ft] = current->win;
     for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
         xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
