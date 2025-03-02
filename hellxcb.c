@@ -427,6 +427,15 @@ void cleanup(void) {
     xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, screen->root, XCB_CURRENT_TIME);
 }
 
+/* detached thread to swa[ the active window border colour ]*/
+static void *clickToChangeColour(void *s) {
+    (void)s;
+    static unsigned int x = 0U;
+    while (x++ <= 3U) { update_current(current, 1); clickToChangeColour(NULL); sleep(1); }
+    x = 0U;
+    return NULL;
+}
+
 /* move a client to another desktop
  *
  * remove the current client from the current desktop's client list
@@ -1117,14 +1126,6 @@ int setup_keyboard(void)
        }
 
     return 0;
-}
-
-/* detached thread to swa[ the active window border colour ]*/
-static void *clickToChangeColour(void *s) {
-    (void)s;
-    static unsigned int x = 0U;
-    while (x++ <= 3U) { update_current(current, 1); clickToChangeColour(NULL); sleep(1); }
-    x = 0U;
 }
 
 /* set initial values
