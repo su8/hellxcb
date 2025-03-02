@@ -34,7 +34,7 @@ MA 02110-1301, USA.
 #define FOLLOW_MOUSE    True      /* Focus the window the mouse just entered */
 #define FOLLOW_WINDOW   False     /* Follow the window when moved to a different desktop */
 #define CLICK_TO_FOCUS  False     /* Focus an unfocused window when clicked */
-#define BORDER_WIDTH    5         /* window border width */
+#define BORDER_WIDTH    2         /* window border width */
 #define FOCUS_COLOUR1   "#f0c674" /* focused window border colour1 */
 #define FOCUS_COLOUR2   "#1793D1" /* focused window border colour2 */
 #define FOCUS_COLOUR3   "#b294bb" /* focused window border colour3 */
