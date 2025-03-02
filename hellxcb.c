@@ -61,6 +61,7 @@ static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using 
 static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
 static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
 static unsigned int prevworkspace = 1U; /* used to count the number of opened windows and workaround the problem when there is only 1 window as it was showing 0 in the past */
+static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering/clicking the left mouse button around each window */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
 static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
@@ -669,7 +670,7 @@ void killclient() {
     numOfWindows == 1U ? numOfWindows-- : 0;
     prevworkspace = currentworkspace;
     workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
-    change_desktop(&(Arg){.i = (currentworkspace == 0 ? 1 : 0)});
+    change_desktop(&(Arg){.i = (currentworkspace == 0U ? 1 : 0)});
     change_desktop(&(Arg){.i = prevworkspace});
 }
 
@@ -1129,7 +1130,10 @@ int setup(int default_screen) {
     wh = screen->height_in_pixels - PANEL_HEIGHT;
     for (unsigned int i=0; i<DESKTOPS; i++) save_desktop(i);
 
-    win_focus   = getcolor(FOCUS);
+    //win_focus   = getcolor(FOCUS);
+    randomRGB[0] = getcolor("#f0c674");
+    randomRGB[1] = getcolor("#1793D1");
+    randomRGB[2] = getcolor("#b294bb");
     win_unfocus = getcolor(UNFOCUS);
 
     /* setup keyboard */
@@ -1305,8 +1309,13 @@ void update_current(client *c) {
 
     /* num of n:all fl:fullscreen ft:floating/transient windows */
     int n = 0, fl = 0, ft = 0;
+
+    //kk
     for (c = head; c; c = c->next, ++n) if (ISFFT(c)) { fl++; if (!c->isfullscrn) ft++; }
     xcb_window_t w[n];
+    static unsigned int rgb = 0U;
+    if (rgb >= 3U) { rgb = 0U; }
+    win_focus = randomRGB[rgb];
     w[(current->isfloating||current->istransient)?0:ft] = current->win;
     for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
         xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
@@ -1315,7 +1324,7 @@ void update_current(client *c) {
         //   screen->root, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_BUTTON_MASK_ANY);
         if (c != current) w[c->isfullscrn ? --fl : ISFFT(c) ? --ft : --n] = c->win;
     }
-
+    rgb++;
     /* restack */
     for (ft = 0; ft <= n; ++ft) xcb_raise_window(dis, w[n-ft]);
 
