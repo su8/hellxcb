@@ -1131,9 +1131,9 @@ int setup(int default_screen) {
     for (unsigned int i=0; i<DESKTOPS; i++) save_desktop(i);
 
     //win_focus   = getcolor(FOCUS);
-    randomRGB[0] = getcolor("#f0c674");
-    randomRGB[1] = getcolor("#1793D1");
-    randomRGB[2] = getcolor("#b294bb");
+    randomRGB[0] = getcolor(FOCUS_COLOUR1);
+    randomRGB[1] = getcolor(FOCUS_COLOUR2);
+    randomRGB[2] = getcolor(FOCUS_COLOUR3);
     win_unfocus = getcolor(UNFOCUS);
 
     /* setup keyboard */
