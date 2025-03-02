@@ -1309,8 +1309,6 @@ void update_current(client *c) {
 
     /* num of n:all fl:fullscreen ft:floating/transient windows */
     int n = 0, fl = 0, ft = 0;
-
-    //kk
     for (c = head; c; c = c->next, ++n) if (ISFFT(c)) { fl++; if (!c->isfullscrn) ft++; }
     xcb_window_t w[n];
     static unsigned int rgb = 0U;
