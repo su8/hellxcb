@@ -1146,9 +1146,8 @@ int setup(int default_screen) {
     pthread_create(&th, NULL, clickToChangeColour, NULL);
     pthread_detach(th);
 
-    
-    const char const *colours[] = {FOCUS_COLOUR1, FOCUS_COLOUR2, FOCUS_COLOUR3};
-    for (char z = 0; z < 3; z++) { randomRGB[z] = getcolor(colours[z]); randomRGBclick[z] = getcolor(colours[z]); }
+    char *colours[] = {(char *)FOCUS_COLOUR1, (char *)FOCUS_COLOUR2, (char *)FOCUS_COLOUR3};
+    for (unsigned short int z = 0; z < 3; z++) { randomRGB[z] = getcolor(colours[z]); randomRGBclick[z] = getcolor(colours[z]); }
     win_unfocus = getcolor(UNFOCUS);
 
     /* setup keyboard */
@@ -1314,7 +1313,7 @@ void unmapnotify(xcb_generic_event_t *e) {
  *  - the window is the only window on screen
  *  - the window is fullscreen
  *  - the mode is MONOCLE and the window is not floating or transient */
-void update_current(client *c, unsigned short int onClickColorChange) {
+void update_current(client *c, unsigned short int onClickColourChange) {
     if (!head) {
         xcb_delete_property(dis, screen->root, netatoms[NET_ACTIVE]);
         current = prevfocus = NULL;
@@ -1329,7 +1328,7 @@ void update_current(client *c, unsigned short int onClickColorChange) {
     static unsigned int rgb = 0U, rgb2 = 0U;
     if (rgb >= 3U) { rgb = 0U; }
     if (rgb2 >= 3U) { rgb2 = 0U; }
-    win_focus = (onClickColorChange == 0 ? randomRGB[rgb] : randomRGBclick[rgb2]);
+    win_focus = (onClickColourChange == 0 ? randomRGB[rgb] : randomRGBclick[rgb2]);
     w[(current->isfloating||current->istransient)?0:ft] = current->win;
     for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
         xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
@@ -1338,7 +1337,7 @@ void update_current(client *c, unsigned short int onClickColorChange) {
         //   screen->root, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_BUTTON_MASK_ANY);
         if (c != current) w[c->isfullscrn ? --fl : ISFFT(c) ? --ft : --n] = c->win;
     }
-    onClickColorChange == 0 ? rgb++ : rgb2++;
+    onClickColourChange == 0 ? rgb++ : rgb2++;
     /* restack */
     for (ft = 0; ft <= n; ++ft) xcb_raise_window(dis, w[n-ft]);
 
