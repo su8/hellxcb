@@ -35,7 +35,7 @@ CFLAGS += ${ADDITIONALFLAGS} -g2 -Wall -Wextra -O2 -I/usr/include/freetype2 -I/u
 LDFLAGS  += ${LIBS}
 
 all:
-	$(CC) $(CFLAGS) $(INCS) $(LDFLAGS) -o $(PACKAGE) $(PROG)
+	$(CC) -o $(PACKAGE) $(PROG) $(CFLAGS) $(INCS) $(LDFLAGS)
 
 clean:
 	echo cleaning
