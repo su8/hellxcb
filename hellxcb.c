@@ -243,19 +243,19 @@ static xcb_screen_t *xcb_screen_of_display(xcb_connection_t *con, int num) {
 
 /* wrapper to move and resize window */
 static inline void xcb_move_resize(xcb_connection_t *con, xcb_window_t win, int x, int y, int w, int h) {
-    unsigned int pos[4] = { x, y, w, h };
+    uint32_t pos[4] = { (uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h };
     xcb_configure_window(con, win, XCB_MOVE_RESIZE, pos);
 }
 
 /* wrapper to move window */
 static inline void xcb_move(xcb_connection_t *con, xcb_window_t win, int x, int y) {
-    unsigned int pos[2] = { x, y };
+    uint32_t pos[2] = { (uint32_t)x, (uint32_t)y };
     xcb_configure_window(con, win, XCB_MOVE, pos);
 }
 
 /* wrapper to resize window */
 static inline void xcb_resize(xcb_connection_t *con, xcb_window_t win, int w, int h) {
-    unsigned int pos[2] = { w, h };
+    uint32_t pos[2] = { (uint32_t)w, (uint32_t)h };
     xcb_configure_window(con, win, XCB_RESIZE, pos);
 }
 
@@ -267,14 +267,14 @@ static inline void xcb_raise_window(xcb_connection_t *con, xcb_window_t win) {
 
 /* wrapper to set xcb border width */
 static inline void xcb_border_width(xcb_connection_t *con, xcb_window_t win, int w) {
-    unsigned int arg[1] = { w };
+    uint32_t arg[1] = { (uint32_t)w };
     xcb_configure_window(con, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, arg);
 }
 
 /* retieve RGB color from hex (think of html) */
 static unsigned int xcb_get_colorpixel(const char *hex) {
     char strgroups[3][3]  = {{hex[1], hex[2], '\0'}, {hex[3], hex[4], '\0'}, {hex[5], hex[6], '\0'}};
-    unsigned int rgb16[3] = {(strtol(strgroups[0], NULL, 16)), (strtol(strgroups[1], NULL, 16)), (strtol(strgroups[2], NULL, 16))};
+    unsigned int rgb16[3] = {(unsigned int)strtoul(strgroups[0], NULL, 16), (unsigned int)strtoul(strgroups[1], NULL, 16), (unsigned int)strtoul(strgroups[2], NULL, 16)};
     return (rgb16[0] << 16) + (rgb16[1] << 8) + rgb16[2];
 }
 
@@ -283,7 +283,7 @@ static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int co
     xcb_intern_atom_cookie_t cookies[count];
     xcb_intern_atom_reply_t  *reply;
 
-    for (unsigned int i = 0; i < count; i++) cookies[i] = xcb_intern_atom(dis, 0, strlen(names[i]), names[i]);
+    for (unsigned int i = 0; i < count; i++) cookies[i] = xcb_intern_atom(dis, 0, (uint16_t)strlen(names[i]), names[i]);
     for (unsigned int i = 0; i < count; i++) {
         reply = xcb_intern_atom_reply(dis, cookies[i], NULL); /* TODO: Handle error */
         if (reply) {
@@ -439,12 +439,12 @@ void configurerequest(xcb_generic_event_t *e) {
     client *c = wintoclient(ev->window);
     if (c && c->isfullscrn) setfullscreen(c, true);
     else {
-        unsigned int v[7];
+        uint32_t v[7];
         unsigned int i = 0;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_X)              v[i++] = ev->x;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_Y)              v[i++] = ev->y + ((showpanel && TOP_PANEL) ? PANEL_HEIGHT : 0);
-        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (ev->width  > ww - 2*BORDER_WIDTH) ? ww - 2*BORDER_WIDTH : ev->width;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (ev->height > wh - 2*BORDER_WIDTH) ? wh - 2*BORDER_WIDTH : ev->height;
+        if (ev->value_mask & XCB_CONFIG_WINDOW_X)              v[i++] = (uint32_t)ev->x;
+        if (ev->value_mask & XCB_CONFIG_WINDOW_Y)              v[i++] = (uint32_t)(ev->y + ((showpanel && TOP_PANEL) ? PANEL_HEIGHT : 0));
+        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (uint32_t)((ev->width  > ww - 2*BORDER_WIDTH) ? ww - 2*BORDER_WIDTH : ev->width);
+        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (uint32_t)((ev->height > wh - 2*BORDER_WIDTH) ? wh - 2*BORDER_WIDTH : ev->height);
         if (ev->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)   v[i++] = ev->border_width;
         if (ev->value_mask & XCB_CONFIG_WINDOW_SIBLING)        v[i++] = ev->sibling;
         if (ev->value_mask & XCB_CONFIG_WINDOW_STACK_MODE)     v[i++] = ev->stack_mode;
@@ -556,7 +556,7 @@ unsigned int getcolor(const char *color) {
 
     rgb = xcb_get_colorpixel(color);
     r = rgb >> 16; g = rgb >> 8 & 0xFF; b = rgb & 0xFF;
-    c = xcb_alloc_color_reply(dis, xcb_alloc_color(dis, map, r * 257, g * 257, b * 257), NULL);
+    c = xcb_alloc_color_reply(dis, xcb_alloc_color(dis, map, (uint16_t)(r * 257), (uint16_t)(g * 257), (uint16_t)(b * 257)), NULL);
     if (!c)
         errx(EXIT_FAILURE, "error: cannot allocate color '%s'\n", color);
 
@@ -575,7 +575,7 @@ void grabbuttons(client *c) {
                         XCB_WINDOW_NONE, XCB_CURSOR_NONE, XCB_BUTTON_INDEX_ANY, XCB_BUTTON_MASK_ANY);
             else
                 xcb_grab_button(dis, 1, c->win, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC,
-                        XCB_WINDOW_NONE, XCB_CURSOR_NONE, buttons[b].button, buttons[b].mask|modifiers[m]);
+                        XCB_WINDOW_NONE, XCB_CURSOR_NONE, (uint8_t)buttons[b].button, (uint16_t)(buttons[b].mask|modifiers[m]));
 }
 
 /* the wm should listen to key presses */
@@ -587,7 +587,7 @@ void grabkeys(void) {
         if (!(keycode = xcb_key_symbols_get_keycode(keysyms, keys[i].keysym))) continue;
         for (unsigned int k=0; keycode[k] != XCB_NO_SYMBOL; k++)
             for (unsigned int m=0; m<LENGTH(modifiers); m++)
-                xcb_grab_key(dis, 1, screen->root, keys[i].mod | modifiers[m], keycode[k], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+                xcb_grab_key(dis, 1, screen->root, (uint16_t)(keys[i].mod | modifiers[m]), keycode[k], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
         free(keycode);
     }
 }
@@ -735,7 +735,7 @@ void mouse_aside(const Arg *arg) {
                                     xcb_query_pointer(dis, screen->root),
                                     NULL);
     if (reply) {
-        rel_x = ww - reply->root_x;
+        rel_x = (int16_t)(ww - reply->root_x);
         DEBUGP("%s: warp relative pos (%d,%d)\n", __func__, rel_x, rel_y);
         xcb_warp_pointer(dis,
                          XCB_NONE, XCB_NONE,
@@ -1088,7 +1088,7 @@ int setup(int default_screen) {
 
     ww = screen->width_in_pixels;
     wh = screen->height_in_pixels - PANEL_HEIGHT;
-    for (unsigned int i=0; i<DESKTOPS; i++) save_desktop(i);
+    for (int i=0; i<DESKTOPS; i++) save_desktop(i);
 
     const char *colours[] = { FOCUS_COLOUR1, FOCUS_COLOUR2, FOCUS_COLOUR3 };
     for (unsigned short int z = 0; z < 3; z++) { randomRGB[z] = getcolor(colours[z]); }
