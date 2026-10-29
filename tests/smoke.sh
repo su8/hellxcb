@@ -20,6 +20,15 @@ check() {
 expect() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1 (got $2, want $3)"; fail=1; fi; }
 geom() { xdotool getwindowgeometry --shell "$1" | sed -n "s/^$2=//p"; }
 
+# grid tiles share their borders and the pointer starts on one (the screen centre):
+# restacking must not bounce the focus between the two windows forever
+for i in 1 2 3 4 5; do xterm >/dev/null 2>&1 & done; sleep 2
+timeout 5 xdotool key alt+shift+g; sleep 1
+timeout 5 xdotool key alt+shift+t; R=$?
+expect "responsive with the pointer on a shared border" $R 0
+pkill -x xterm; sleep 0.5
+[ $R = 0 ] || { kill -9 "$WM"; "$WMBIN" & WM=$!; sleep 1; }
+
 tag() { sed -n 's/^\[tag: \([0-9]*\)\].*/\1/p' /tmp/hellxcb.txt; }
 
 xdotool key alt+shift+j;               check "move_down on an empty desktop"
@@ -73,6 +82,7 @@ A=$(xdotool getactivewindow)
 B=$(xdotool search --onlyvisible --class XTerm | grep -vx "$A" | head -1)
 xdotool mousemove --window "$B" 30 30; sleep 0.5
 expect "focus follows the mouse after a floating window closed" "$(xdotool getactivewindow)" "$B"
+
 
 xdotool key super+z; sleep 1.5
 D=$(xdotool search --onlyvisible --class hellxcb-dropdown | head -1)

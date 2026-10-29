@@ -1277,7 +1277,13 @@ void update_current(client *c) {
     }
     rgb++;
     /* restack */
-    for (int i = count - 1; i >= 0; i--) xcb_raise_window(dis, w[i]);
+    /* top down, each window right below the one before: no window ever passes over
+     * the current one, so the pointer gets no enter event that would move the focus */
+    xcb_raise_window(dis, w[0]);
+    for (int i = 1; i < count; i++) {
+        uint32_t v[2] = { w[i-1], XCB_STACK_MODE_BELOW };
+        xcb_configure_window(dis, w[i], XCB_CONFIG_WINDOW_SIBLING|XCB_CONFIG_WINDOW_STACK_MODE, v);
+    }
 
     xcb_change_property(dis, XCB_PROP_MODE_REPLACE, screen->root, netatoms[NET_ACTIVE], XCB_ATOM_WINDOW, 32, 1, &current->win);
     if (dropdown_shown) xcb_raise_window(dis, dropdown_win); /* the drop-down terminal stays on top with the focus */
