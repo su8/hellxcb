@@ -629,10 +629,11 @@ void grid(int hh, int cy) {
     workspaces[currentworkspace][1] = 0U;
     int n = 0, cols = 0, cn = 0, rn = 0, i = -1;
     for (client *c = head; c; c=c->next) if (!ISFFT(c)) ++n;
+    if (!n) return; /* only floating windows: nothing to tile, and n/cols below would divide by zero */
     for (cols=0; cols <= n/2; cols++) if (cols*cols >= n) break; /* emulate square root */
     if (n == 5) cols = 2;
 
-    int rows = n/cols, ch = hh - BORDER_WIDTH, cw = (ww - BORDER_WIDTH)/(cols?cols:1);
+    int rows = n/cols, ch = hh - BORDER_WIDTH, cw = (ww - BORDER_WIDTH)/cols;
     for (client *c=head; c; c=c->next) {
         if (c->isfloating) continue;
         if (ISFFT(c)) continue; else { ++i; numOfWindows++; workspaces[currentworkspace][1]++; }
