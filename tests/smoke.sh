@@ -40,6 +40,9 @@ xdotool windowmove "$W" 100 300; sleep 0.5
 expect "floating window keeps the y it asks for" "$(geom "$W" Y)" 318
 kill $P1 $P2; sleep 0.5
 xdotool key alt+shift+t
+xdotool key alt+shift+y; sleep 0.3
+expect "cycle_mode goes to the next mode" "$(sed -n 's/.*\[mode: \([a-z]*\)\].*/\1/p' /tmp/hellxcb.txt)" bstack
+xdotool key alt+shift+t
 
 xterm & P1=$!; xterm & P2=$!; sleep 1.5
 count() { grep -o '\[tag 1 win: [0-9]*\]' /tmp/hellxcb.txt; }

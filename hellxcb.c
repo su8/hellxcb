@@ -481,10 +481,8 @@ void configurerequest(xcb_generic_event_t *e) {
 /* cycle thru all of the tiling modes and reset all floating windows */
 void cycle_mode(const Arg *arg) {
     (void)arg;
-    static unsigned int x = 0U;
     for (client *c=head; c; c=c->next) c->isfloating = False;
-    if (x >= 3U) x = 0U;
-    mode = x++;
+    mode = (mode + 1) % MODES;
     tile(); update_current(current);
     desktopinfo();
 }
