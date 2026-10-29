@@ -15,9 +15,11 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 */
+#define _POSIX_C_SOURCE 200809L /* O_NOFOLLOW, fdopen */
 #include <stdlib.h>
 #include <stdio.h>
 #include <err.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -513,10 +515,12 @@ void deletewindow(xcb_window_t w) {
 void desktopinfo(void) {
     static const char *modes[] = { "tile", "bstack", "grid" };
     int n[DESKTOPS] = {0};
-    FILE *fp;
+    FILE *fp = NULL;
     save_desktop(current_desktop);
     for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) n[d]++;
-    if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { warn("cannot write %s", HELLXCB_TAG_AND_MODE); return; }
+    /* O_NOFOLLOW: the file is in a shared /tmp, never write through a symlink planted there */
+    int fd = open(HELLXCB_TAG_AND_MODE, O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW, 0644);
+    if (fd < 0 || !(fp = fdopen(fd, "w"))) { warn("cannot write %s", HELLXCB_TAG_AND_MODE); if (fd >= 0) close(fd); return; }
     fprintf(fp, "[tag: %d] [mode: %s] [windows: %d]", current_desktop + 1, modes[mode], n[current_desktop]);
     for (int d = 0; d < DESKTOPS; d++) fprintf(fp, " [tag %d win: %d]", d + 1, n[d]);
     fclose(fp);
