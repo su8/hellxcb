@@ -165,23 +165,23 @@ static void desktopinfo(void);
 static void destroynotify(xcb_generic_event_t *e);
 static void dropdown(const Arg *arg);
 static void enternotify(xcb_generic_event_t *e);
-static void focusurgent();
+static void focusurgent(const Arg *arg);
 static unsigned int getcolor(char* color);
 static void grabbuttons(client *c);
 static void grabkeys(void);
 static void grid(int h, int y);
 static void keypress(xcb_generic_event_t *e);
-static void killclient();
-static void last_desktop();
+static void killclient(const Arg *arg);
+static void last_desktop(const Arg *arg);
 static void mappingnotify(xcb_generic_event_t *e);
 static void maprequest(xcb_generic_event_t *e);
-static void move_down();
-static void move_up();
-static void mouse_aside();
+static void move_down(const Arg *arg);
+static void move_up(const Arg *arg);
+static void mouse_aside(const Arg *arg);
 static void mousemotion(const Arg *arg);
-static void next_win();
-static client* prev_client();
-static void prev_win();
+static void next_win(const Arg *arg);
+static client* prev_client(client *c);
+static void prev_win(const Arg *arg);
 static void propertynotify(xcb_generic_event_t *e);
 static void quit(const Arg *arg);
 static void removeclient(client *c);
@@ -196,10 +196,10 @@ static void setfullscreen(client *c, bool fullscrn);
 static int setup(int default_screen);
 static void spawn(const Arg *arg);
 static void stack(int h, int y);
-static void swap_master();
+static void swap_master(const Arg *arg);
 static void switch_mode(const Arg *arg);
 static void tile(void);
-static void togglepanel();
+static void togglepanel(const Arg *arg);
 static void update_current(client *c);
 static void unmapnotify(xcb_generic_event_t *e);
 static client* wintoclient(xcb_window_t w);
@@ -536,7 +536,8 @@ void enternotify(xcb_generic_event_t *e) {
 
 /* find and focus the client which received
  * the urgent hint in the current desktop */
-void focusurgent() {
+void focusurgent(const Arg *arg) {
+    (void)arg;
     client *c;
     int cd = current_desktop, d = 0;
     for (c=head; c && !c->isurgent; c=c->next);
@@ -621,7 +622,8 @@ void keypress(xcb_generic_event_t *e) {
 
 /* explicitly kill a client - close the highlighted window
  * send a delete message and remove the client */
-void killclient() {
+void killclient(const Arg *arg) {
+    (void)arg;
     if (!current) return;
     xcb_icccm_get_wm_protocols_reply_t reply; unsigned int n = 0; bool got = false;
     if (xcb_icccm_get_wm_protocols_reply(dis,
@@ -637,7 +639,8 @@ void killclient() {
 }
 
 /* focus the previously focused desktop */
-void last_desktop() {
+void last_desktop(const Arg *arg) {
+    (void)arg;
     change_desktop(&(Arg){.i = previous_desktop});
 }
 
@@ -723,7 +726,8 @@ void maprequest(xcb_generic_event_t *e) {
 }
 
 /* move the mouse pointer to the rightmost screen edge */
-void mouse_aside() {
+void mouse_aside(const Arg *arg) {
+    (void)arg;
     xcb_query_pointer_reply_t	*reply = NULL;
     int16_t                     rel_x = 0, rel_y = 0;
 
@@ -819,7 +823,8 @@ void mousemotion(const Arg *arg) {
 
 /* move the current client, to current->next
  * and current->next to current client's position */
-void move_down() {
+void move_down(const Arg *arg) {
+    (void)arg;
     /* p is previous, c is current, n is next, if current is head n is last */
     if (!current) return;
     client *p = NULL, *n = (current->next) ? current->next:head;
@@ -857,7 +862,8 @@ void move_down() {
 
 /* move the current client, to the previous from current and
  * the previous from  current to current client's position */
-void move_up() {
+void move_up(const Arg *arg) {
+    (void)arg;
     client *pp = NULL, *p;
     /* p is previous from current or last if current is head */
     if (!(p = prev_client(current))) return;
@@ -896,7 +902,8 @@ void move_up() {
 
 /* cyclic focus the next window
  * if the window is the last on stack, focus head */
-void next_win() {
+void next_win(const Arg *arg) {
+    (void)arg;
     if (!current || !head->next) return;
     update_current(current->next ? current->next:head);
 }
@@ -911,7 +918,8 @@ client* prev_client(client *c) {
 
 /* cyclic focus the previous window
  * if the window is the head, focus the last stack window */
-void prev_win() {
+void prev_win(const Arg *arg) {
+    (void)arg;
     if (!current || !head->next) return;
     update_current(prev_client(prevfocus = current));
 }
@@ -1190,10 +1198,11 @@ void stack(int hh, int cy) {
  * if current is not head, then head
  * is behind us, so move_up until we
  * are the head */
-void swap_master() {
+void swap_master(const Arg *arg) {
+    (void)arg;
     if (!current || !head->next) return;
-    if (current == head) move_down();
-    else while (current != head) move_up();
+    if (current == head) move_down(NULL);
+    else while (current != head) move_up(NULL);
     update_current(head);
 }
 
@@ -1213,7 +1222,8 @@ void tile(void) {
 }
 
 /* toggle visibility state of the panel */
-void togglepanel() {
+void togglepanel(const Arg *arg) {
+    (void)arg;
     showpanel = !showpanel;
     tile();
 }
