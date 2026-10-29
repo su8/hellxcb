@@ -66,7 +66,7 @@ static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", 
 #define USAGE           "usage: hellxcb [-h] [-v]"
 
 enum { RESIZE, MOVE };
-enum { TILE, BSTACK, GRID, MODES };
+enum { TILE, BSTACK, GRID, FLOAT, MODES };
 enum { WM_PROTOCOLS, WM_DELETE_WINDOW, WM_COUNT };
 enum { NET_SUPPORTED, NET_FULLSCREEN, NET_WM_STATE, NET_ACTIVE, NET_COUNT };
 
@@ -475,7 +475,7 @@ void deletewindow(xcb_window_t w) {
 /* write the current desktop, its mode and the window count of every desktop
  * to HELLXCB_TAG_AND_MODE, e.g. for a status bar */
 void desktopinfo(void) {
-    static const char *modes[] = { "tile", "bstack", "grid" };
+    static const char *modes[] = { "tile", "bstack", "grid", "float" };
     int n[DESKTOPS] = {0};
     FILE *fp = NULL;
     save_desktop(current_desktop);
@@ -1178,7 +1178,7 @@ void switch_mode(const Arg *arg) {
 
 /* tile all windows of current desktop - call the handler tiling function */
 void tile(void) {
-    if (!head) return; /* nothing to arange */
+    if (!head || mode == FLOAT) return; /* nothing to arrange */
     layout[head->next ? mode : TILE](wh + (showpanel ? 0:PANEL_HEIGHT),
                                 (TOP_PANEL && showpanel ? PANEL_HEIGHT:0));
 }

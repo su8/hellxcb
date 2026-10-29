@@ -29,7 +29,7 @@ MA 02110-1301, USA.
 #define SHOW_PANEL      True      /* show panel by default on exec */
 #define TOP_PANEL       True      /* False mean panel is on bottom */
 #define PANEL_HEIGHT    18        /* 0 for no space for panel, thus no panel */
-#define DEFAULT_MODE    TILE      /* TILE BSTACK GRID */
+#define DEFAULT_MODE    TILE      /* TILE BSTACK GRID FLOAT */
 #define ATTACH_ASIDE    True      /* False means new window is master */
 #define FOLLOW_MOUSE    True      /* Focus the window the mouse just entered */
 #define FOLLOW_WINDOW   False     /* Follow the window when moved to a different desktop */
@@ -42,7 +42,7 @@ MA 02110-1301, USA.
 #define DESKTOPS        4         /* number of desktops - edit DESKTOPCHANGE keys to suit */
 #define DEFAULT_DESKTOP 0         /* the desktop to focus on exec */
 #define MINWSZ          50        /* minimum window size in pixels */
-#define HELLXCB_TAG_AND_MODE "/tmp/hellxcb.txt" /* file to output the current focused window and it's style e.g: tile bstack grid */
+#define HELLXCB_TAG_AND_MODE "/tmp/hellxcb.txt" /* file to output the current focused window and it's style e.g: tile bstack grid float */
 
 /* open applications to specified desktop with specified mode.
  * if desktop is negative, then current is assumed */
@@ -87,6 +87,7 @@ static key keys[] = {
     {  MOD1|SHIFT,       XK_t,          switch_mode,       {.i = TILE}},
     {  MOD1|SHIFT,       XK_b,          switch_mode,       {.i = BSTACK}},
     {  MOD1|SHIFT,       XK_g,          switch_mode,       {.i = GRID}},
+    {  MOD1|SHIFT,       XK_f,          switch_mode,       {.i = FLOAT}},
     {  MOD1|SHIFT,       XK_y,          cycle_mode,        {NULL}},
     {  MOD1|CONTROL,     XK_r,          quit,              {.i = 0}}, /* quit with exit value 0 */
     {  MOD1|CONTROL,     XK_q,          quit,              {.i = 1}}, /* quit with exit value 1 */
