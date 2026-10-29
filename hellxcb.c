@@ -947,7 +947,7 @@ void next_win() {
 /* get the previous client from the given
  * if no such client, return NULL */
 client* prev_client(client *c) {
-    if (!c || !head->next) return NULL;
+    if (!c || !head || !head->next) return NULL;
     client *p; for (p=head; p->next && p->next != c; p=p->next);
     return p;
 }
@@ -997,7 +997,7 @@ void removeclient(client *c) {
         for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
     *p = c->next;
     if (c == prevfocus) prevfocus = prev_client(current);
-    if (c == current || !head->next) update_current(prevfocus);
+    if (c == current || !head || !head->next) update_current(prevfocus);
     free(c); c = NULL;
     if (cd == nd -1) tile(); else select_desktop(cd);
 }
