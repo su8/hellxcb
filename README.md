@@ -55,7 +55,7 @@ For NetBSD the packages are `clang` `gmake` `firefox` `git` `gawk` `xcb` `xcb-ut
 Bugs
 ----
 
-I have fixed - https://github.com/Cloudef/monsterwm-xcb/issues/8 . When closing pop-up dialogs you must use `alt + z` to bring the focusing back to normal.
+I have fixed - https://github.com/Cloudef/monsterwm-xcb/issues/8 . An open dialog keeps the focus while the mouse moves over other windows, until it is closed.
 
 Fill bugs only on hellxcb, when you are sure the bug doesn't occur on [monsterwm][].
 

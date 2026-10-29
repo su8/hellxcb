@@ -53,6 +53,14 @@ xdotool key alt+b key alt+b; sleep 0.5 # retile
 [ "$(geom "$W" X)" != "$X0" ]; expect "alt+drag moves the window and it stays" $? 0
 xdotool key alt+c; sleep 0.5
 expect "closing a window updates the count" "$(count)" "[tag 1 win: 1]"
-kill $P1 $P2 2>/dev/null
+kill $P1 $P2 2>/dev/null; sleep 0.5
+
+xterm & P1=$!; xterm & P2=$!; sleep 1.5
+xterm -class Gimp & P3=$!; sleep 1; kill $P3; sleep 0.5
+A=$(xdotool getactivewindow)
+B=$(xdotool search --onlyvisible --class XTerm | grep -vx "$A" | head -1)
+xdotool mousemove --window "$B" 30 30; sleep 0.5
+expect "focus follows the mouse after a floating window closed" "$(xdotool getactivewindow)" "$B"
+kill $P1 $P2
 
 exit $fail
