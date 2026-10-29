@@ -42,6 +42,8 @@ kill $P1 $P2; sleep 0.5
 xdotool key alt+shift+t
 
 xterm & P1=$!; xterm & P2=$!; sleep 1.5
+count() { grep -o '\[tag 1 win: [0-9]*\]' /tmp/hellxcb.txt; }
+expect "status file counts the windows" "$(count)" "[tag 1 win: 2]"
 W=$(xdotool search --onlyvisible --class XTerm | head -1)
 expect "border width is BORDER_WIDTH" "$(xwininfo -id "$W" | sed -n 's/.*Border width: //p')" 2
 W=$(xdotool getactivewindow)
@@ -49,6 +51,8 @@ X0=$(geom "$W" X)
 xdotool mousemove --window "$W" 20 20 keydown alt mousedown 1 mousemove_relative 150 40 mouseup 1 keyup alt
 xdotool key alt+b key alt+b; sleep 0.5 # retile
 [ "$(geom "$W" X)" != "$X0" ]; expect "alt+drag moves the window and it stays" $? 0
-kill $P1 $P2
+xdotool key alt+c; sleep 0.5
+expect "closing a window updates the count" "$(count)" "[tag 1 win: 1]"
+kill $P1 $P2 2>/dev/null
 
 exit $fail

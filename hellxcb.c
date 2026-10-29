@@ -55,11 +55,7 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
-static unsigned int workspaces[10][2] = { {0U, 0U} }; /* show how many windows are opened in all tags/workspaces */
-static unsigned int currentworkspace = 0U; /* to count how many windows are opened in all tags/workspaces */
-static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
 static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
-static unsigned int prevworkspace = 1U; /* used to count the number of opened windows and workaround the problem when there is only 1 window as it was showing 0 in the past */
 static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering the mouse around each window */
 
 static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
@@ -392,9 +388,6 @@ void buttonpress(xcb_generic_event_t *e) {
  * then unmap the old windows
  * first all others then the current */
 void change_desktop(const Arg *arg) {
-    numOfWindows = 0U;
-    workspaces[arg->i][1] = 0U;
-    currentworkspace = arg->i;
     if (arg->i == current_desktop) return;
     previous_desktop = current_desktop;
     select_desktop(arg->i);
@@ -404,7 +397,6 @@ void change_desktop(const Arg *arg) {
     for (client *c=head; c; c=c->next) if (c != current) xcb_unmap_window(dis, c->win);
     if (current) xcb_unmap_window(dis, current->win);
     select_desktop(arg->i);
-    for (client *c2=head; c2; c2=c2->next) workspaces[arg->i][1]++;
     tile(); update_current(current);
     desktopinfo();
 }
@@ -442,10 +434,6 @@ void client_to_desktop(const Arg *arg) {
     xcb_unmap_window(dis, c->win);
     update_current(prevfocus);
 
-    //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
-    workspaces[arg->i][1]++; 
-    numOfWindows = 0U;
-    workspaces[currentworkspace][1] = 0U;
     if (FOLLOW_WINDOW) change_desktop(arg); else tile();
     desktopinfo();
 }
@@ -520,28 +508,18 @@ void deletewindow(xcb_window_t w) {
     xcb_send_event(dis, 0, w, XCB_EVENT_MASK_NO_EVENT, (char*)&ev);
 }
 
-/* output info about the desktops on standard output stream
- *
- * the info is a list of ':' separated values for each desktop
- * desktop to desktop info is separated by ' ' single spaces
- * the info values are
- *   the desktop number/id
- *   the desktop's client count
- *   the desktop's tiling layout mode/id
- *   whether the desktop is the current focused (1) or not (0)
- *   whether any client in that desktop has received an urgent hint
- *
- * once the info is collected, immediately flush the stream */
+/* write the current desktop, its mode and the window count of every desktop
+ * to HELLXCB_TAG_AND_MODE, e.g. for a status bar */
 void desktopinfo(void) {
-    bool urgent = false;
-    int cd = current_desktop, n=0, d=0;
-    for (client *c; d<DESKTOPS; d++) {
-        for (select_desktop(d), c=head, n=0, urgent=false; c; c=c->next, ++n) if (c->isurgent) urgent = true;
-        ;
-        //fprintf(stdout, "%d:%d:%d:%d:%d%c", d, n, mode, current_desktop == cd, urgent, d+1==DESKTOPS?'\n':' ');
-    }
-    fflush(stdout);
-    if (cd != d-1) select_desktop(cd);
+    static const char *modes[] = { "tile", "bstack", "grid" };
+    int n[DESKTOPS] = {0};
+    FILE *fp;
+    save_desktop(current_desktop);
+    for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) n[d]++;
+    if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { warn("cannot write %s", HELLXCB_TAG_AND_MODE); return; }
+    fprintf(fp, "[tag: %d] [mode: %s] [windows: %d]", current_desktop + 1, modes[mode], n[current_desktop]);
+    for (int d = 0; d < DESKTOPS; d++) fprintf(fp, " [tag %d win: %d]", d + 1, n[d]);
+    fclose(fp);
 }
 
 /* a destroy notification is received when a window is being closed
@@ -624,8 +602,6 @@ void grabkeys(void) {
 
 /* arrange windows in a grid */
 void grid(int hh, int cy) {
-    numOfWindows = 0U;
-    workspaces[currentworkspace][1] = 0U;
     int n = 0, cols = 0, cn = 0, rn = 0, i = -1;
     for (client *c = head; c; c=c->next) if (!ISFFT(c)) ++n;
     if (!n) return; /* only floating windows: nothing to tile, and n/cols below would divide by zero */
@@ -635,7 +611,7 @@ void grid(int hh, int cy) {
     int rows = n/cols, ch = hh - BORDER_WIDTH, cw = (ww - BORDER_WIDTH)/cols;
     for (client *c=head; c; c=c->next) {
         if (c->isfloating) continue;
-        if (ISFFT(c)) continue; else { ++i; numOfWindows++; workspaces[currentworkspace][1]++; }
+        if (ISFFT(c)) continue; else ++i;
         if (i/rows + 1 > cols - n%cols) rows = n/cols + 1;
         xcb_move_resize(dis, c->win, cn*cw, cy + rn*ch/rows, cw - BORDER_WIDTH, ch/rows - BORDER_WIDTH);
         if (++rn >= rows) { rn = 0; cn++; }
@@ -667,11 +643,7 @@ void killclient() {
     else xcb_kill_client(dis, current->win);
     removeclient(current);
     //wmName[0] = '\0';
-    numOfWindows == 1U ? numOfWindows-- : 0;
-    prevworkspace = currentworkspace;
-    workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
-    change_desktop(&(Arg){.i = (currentworkspace == 0U ? 1 : 0)});
-    change_desktop(&(Arg){.i = prevworkspace});
+    desktopinfo();
 }
 
 /* focus the previously focused desktop */
@@ -748,8 +720,6 @@ void maprequest(xcb_generic_event_t *e) {
 
     if (c->isfloating) stealFocus = 1U;
     else { c->isfloating = 0; stealFocus = 0U; }
-
-    //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
 
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
@@ -1053,10 +1023,6 @@ void save_desktop(int i) {
 
 /* set the specified desktop's properties */
 void select_desktop(int i) {
-    static FILE *fp = NULL;
-    char str[256] = {'\0'};
-    char *strPtr = str;
-    static const char *styles_arr[] = { "tile", "bstack", "grid"};
     if (i < 0 || i >= DESKTOPS) return;
     save_desktop(current_desktop);
     master_size     = desktops[i].master_size;
@@ -1067,11 +1033,6 @@ void select_desktop(int i) {
     showpanel       = desktops[i].showpanel;
     prevfocus       = desktops[i].prevfocus;
     current_desktop = i;
-    for (unsigned int x = 0; x < DESKTOPS; x++) strPtr += snprintf(strPtr, 256, "[tag %u win: %u] ", x + 1, workspaces[x][1]);
-    *(--strPtr) = '\0';
-    if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open a text file to output some data."); return; }
-    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] %s", i + 1, styles_arr[mode], numOfWindows, str);
-    (void)fclose(fp);
 }
 
 /* set or unset fullscreen state of client */
@@ -1181,13 +1142,11 @@ void spawn(const Arg *arg) {
 
 /* arrange windows in normal or bottom stack tile */
 void stack(int hh, int cy) {
-    numOfWindows = 1U;
-    workspaces[currentworkspace][1] = 1U;
     client *c = NULL, *t = NULL; bool b = mode == BSTACK;
     int n = 0, d = 0, z = b ? ww:hh, ma = (mode == BSTACK ? wh:ww) * MASTER_SIZE + master_size;
 
     /* count stack windows and grab first non-floating, non-fullscreen window */
-    for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) { ++n; numOfWindows++; workspaces[currentworkspace][1]++; } else c = t; }
+    for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) ++n; else c = t; }
 
     /* if there is only one window, it should cover the available screen space
      * if there is only one stack window (n == 1) then we don't care about growth
@@ -1348,7 +1307,7 @@ int main(int argc, char *argv[]) {
     if (xcb_connection_has_error((dis = xcb_connect(NULL, &default_screen))))
         errx(EXIT_FAILURE, "error: cannot open display\n");
     if (setup(default_screen) != -1) {
-      desktopinfo(); /* zero out every desktop on (re)start */
+      desktopinfo();
       run();
     }
     cleanup();
