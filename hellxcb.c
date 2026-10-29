@@ -1265,11 +1265,13 @@ void update_current(client *c) {
     /* num of n:all fl:fullscreen ft:floating/transient windows */
     int n = 0, fl = 0, ft = 0;
     for (c = head; c; c = c->next, ++n) if (ISFFT(c)) { fl++; if (!c->isfullscrn) ft++; }
+    const int count = n;
     xcb_window_t w[n];
     static unsigned int rgb = 0U;
     if (rgb >= 3U) { rgb = 0U; }
     win_focus = randomRGB[rgb];
-    w[(current->isfloating||current->istransient)?0:ft] = current->win;
+    /* w[] is the stacking order, w[0] on top; see the comment above */
+    w[(current->isfloating||current->istransient) && !current->isfullscrn ? 0:ft] = current->win;
     for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
         xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
         xcb_border_width(dis, c->win, (!head->next || c->isfullscrn) ? 0 : BORDER_WIDTH);
@@ -1279,7 +1281,7 @@ void update_current(client *c) {
     }
     rgb++;
     /* restack */
-    for (ft = 0; ft <= n; ++ft) xcb_raise_window(dis, w[n-ft]);
+    for (int i = count - 1; i >= 0; i--) xcb_raise_window(dis, w[i]);
 
     xcb_change_property(dis, XCB_PROP_MODE_REPLACE, screen->root, netatoms[NET_ACTIVE], XCB_ATOM_WINDOW, 32, 1, &current->win);
     xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, current->win, XCB_CURRENT_TIME);
