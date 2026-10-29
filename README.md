@@ -31,6 +31,35 @@ Alt+Shift+f switches the desktop to floating mode: windows keep the place and si
 
 `make check` runs a smoke test on a virtual X server. It needs `Xvfb`, `xdotool`, `xterm` and `xwininfo`.
 
+For shadows, fading and window animations, run [picom](https://github.com/yshui/picom) (v12 or newer for animations) next to hellxcb. Start it in `.xinitrc` with `picom -b` before `exec hellxcb`. Example `~/.config/picom/picom.conf`:
+
+```
+backend = "glx";
+vsync = true;
+shadow = true;
+fading = true;
+fade-delta = 5;
+inactive-opacity = 0.95;
+
+animations = (
+  { triggers = [ "open", "show" ];   preset = "appear";          duration = 0.2; },
+  { triggers = [ "close", "hide" ];  preset = "disappear";       duration = 0.15; },
+  { triggers = [ "geometry" ];       preset = "geometry-change"; duration = 0.2; },
+);
+
+rules = (
+  # the drop-down terminal (Super+z) slides down from the top
+  { match = "class_g = 'hellxcb-dropdown'";
+    animations = (
+      { triggers = [ "open", "show" ]; preset = "slide-in";  direction = "down"; duration = 0.2; },
+      { triggers = [ "close", "hide" ]; preset = "slide-out"; direction = "up";   duration = 0.2; },
+    );
+  },
+);
+```
+
+Other presets: `fly-in`/`fly-out`, and `slide-in`/`slide-out` with `direction = "left"`, `"right"`, `"up"` or `"down"`. Wobbly windows need compiz, which is a window manager itself and cannot run next to hellxcb.
+
 The packages needed for example would be
 `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` [ `pkg-config` or `pkgconfig`or `pkgconf` ]
 
