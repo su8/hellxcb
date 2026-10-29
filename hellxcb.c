@@ -1126,12 +1126,12 @@ void sigchld() {
 /* execute a command */
 void spawn(const Arg *arg) {
     if (fork()) return;
-    if (dis) close(screen->root);
+    if (dis) close(xcb_get_file_descriptor(dis));
     setsid();
     execvp((char*)arg->com[0], (char**)arg->com);
     fprintf(stderr, "error: execvp %s", (char *)arg->com[0]);
     perror(" failed"); /* also prints the err msg */
-    exit(EXIT_SUCCESS);
+    _exit(EXIT_FAILURE);
 }
 
 /* arrange windows in normal or bottom stack tile */
