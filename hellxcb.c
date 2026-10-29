@@ -667,7 +667,9 @@ void maprequest(xcb_generic_event_t *e) {
     xcb_get_property_reply_t           *prop_reply;
 
     xcb_get_attributes(windows, attr, 1);
-    if (!attr[0] || attr[0]->override_redirect) return;
+    bool unmanaged = !attr[0] || attr[0]->override_redirect;
+    free(attr[0]);
+    if (unmanaged) return;
     if (wintoclient(ev->window)) return;
     DEBUG("xcb: map request");
 
@@ -738,6 +740,7 @@ void mouse_aside() {
                          XCB_NONE, XCB_NONE,
                          0, 0, 0, 0,
                          rel_x, rel_y);
+        free(reply);
     } else {
         DEBUGP("%s: no mouse query info\n", __func__);
     }
@@ -769,10 +772,13 @@ void mousemotion(const Arg *arg) {
     pointer = xcb_query_pointer_reply(dis, xcb_query_pointer(dis, screen->root), 0);
     if (!pointer) return;
     mx = pointer->root_x; my = pointer->root_y;
+    free(pointer);
 
     grab_reply = xcb_grab_pointer_reply(dis, xcb_grab_pointer(dis, 0, screen->root, BUTTONMASK|XCB_EVENT_MASK_BUTTON_MOTION|XCB_EVENT_MASK_POINTER_MOTION,
             XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_NONE, XCB_CURRENT_TIME), NULL);
-    if (!grab_reply || grab_reply->status != XCB_GRAB_STATUS_SUCCESS) return;
+    bool grabbed = grab_reply && grab_reply->status == XCB_GRAB_STATUS_SUCCESS;
+    free(grab_reply);
+    if (!grabbed) return;
 
     if (current->isfullscrn) setfullscreen(current, False);
     tile(); update_current(current);
@@ -809,6 +815,7 @@ void mousemotion(const Arg *arg) {
             default: break;
         }
     } while(!ungrab && current);
+    free(e);
     DEBUG("xcb: ungrab");
     xcb_ungrab_pointer(dis, XCB_CURRENT_TIME);
 }
