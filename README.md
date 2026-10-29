@@ -25,23 +25,11 @@ To have mouse cursor, open up `.xinitrc` and append somewhere before the `case` 
 
 The statusline in the picture above is made of https://github.com/su8/doomy . You can use `sed` to make a named tag/workspace from `/tmp/hellxcb.txt` , just use `cat /tmp/hellxcb.txt | sed -E 's/tag: 1/tag: web/g; s/tag: 2/tag: dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g; s/tag 1/web/g; s/tag 2/dev/g; s/tag 3/misc/g; s/tag 4/float/g;'` and redirect it `/tmp/doomy.txt` if you use https://github.com/su8/doomy
 
-To hide/show some windows, you can have drop down terminal:
+Super+z shows and hides a drop-down terminal; the first press starts it. Set its command (`dropdowncmd`), `DROPDOWN_WIDTH` and `DROPDOWN_HEIGHT` (percent of the screen) in `config.h`. The window is found by its class or instance name `hellxcb-dropdown`, so other terminals need their own flag for it, e.g. `st -c hellxcb-dropdown`, `urxvt -name hellxcb-dropdown` or `alacritty --class hellxcb-dropdown`.
 
-```c
-// config.h
-// AppRule rules[] add your terminal and make it floating
-{  MOD4,             XK_z,          hide_show,             {NULL}},
+Alt+Shift+f switches the desktop to floating mode: windows keep the place and size they ask for.
 
-// hellxcb.c
-static void hide_show(const Arg *arg) {
-    (void)arg;
-    static unsigned int show = 0U;
-    static xcb_window_t curwin;
-    if (!current) return;
-    if (show = !show) { curwin = head->win; xcb_unmap_window(dis, curwin); }
-    else { xcb_map_window(dis, curwin); xcb_move_resize(dis, curwin, 0, 0, 0, 0); }
-}
-```
+`make check` runs a smoke test on a virtual X server. It needs `Xvfb`, `xdotool`, `xterm` and `xwininfo`.
 
 The packages needed for example would be
 `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` [ `pkg-config` or `pkgconfig`or `pkgconf` ]
