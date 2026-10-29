@@ -1,8 +1,9 @@
-.TH HELLXCB1 hellxcb
+.TH HELLXCB 1 hellxcb
 .SH NAME
 hellxcb \- minimal and dynamic tiling window manager
 .SH SYNOPSIS
 .B hellxcb 
+.RB [ \-h ]
 .RB [ \-v ]
 .SH DESCRIPTION
 hellxcb is a very minimal, lightweight, tiny but monsterous, dynamic tiling
@@ -14,27 +15,43 @@ It allows the "normal" method of tiling window managers (with the new window as
 the master) and with the new window opened at the bottom of the stack
 .P
 .B hellxcb
-three other modes available:
+has three other modes:
 .I Bottom stack
 where the slave clients (the smaller "windows") are tiled beneath the master.
 .I Grid mode
-where, once there are four or more cliens in a workspace, they are all
-equally divided into a grid.
+where the windows are divided equally into a grid.
 .I Floating mode
-where, windows can move and be resized freely in the screen space. Windows
-retain their floating status until the user switches to a tiling mode.
+where windows keep the place and size they ask for, and can be moved and
+resized freely. A window moved or resized with the mouse in a tiling mode
+floats until its tiling mode is selected again or the modes are cycled.
 .SH OPTIONS
 .TP
+.B \-h
+prints a usage line to standard error, then exits.
+.TP
 .B \-v
-prints version information to standard output, then exits.
+prints version information to standard error, then exits.
 .SH USAGE
 .SS Status bar
 hellxcb does not provide a status bar. Consistent with the Unix philosophy,
 hellxcb provides information to the status bar or panel of choice via text.
-The program outputs it's content about currently used tag, used mode and counting all opened windows in the currently used tag. All of the output is written to HELLXCB_TAG_AND_MODE in config.h .
+Whenever the desktop, the mode or the windows change, it writes one line to
+the file HELLXCB_TAG_AND_MODE in
+.I config.h
+(default
+.IR /tmp/hellxcb.txt ),
+for example:
+.P
+.nf
+[tag: 1] [mode: tile] [windows: 2] [tag 1 win: 2] [tag 2 win: 0] [tag 3 win: 1] [tag 4 win: 0]
+.fi
+.P
+That is the current desktop, its mode (tile, bstack, grid or float), its number
+of windows, and the number of windows on every desktop. The drop-down terminal
+is not counted.
 .SS Keyboard and mouse commands
 All of
-.I mhellxcb's
+.I hellxcb's
 commands can be customized by editing
 .I config.h
 and recompiling. The default key-bindings include:
@@ -59,16 +76,16 @@ Toggles the panel on and off.
 Sets tiled layout.
 .TP
 .B Mod1\-Shift\-b
-Sets bottom stack layout
+Sets bottom stack layout.
 .TP
 .B Mod1\-Shift\-g
-Sets grid layout
+Sets grid layout.
 .TP
 .B Mod1\-Shift\-f
-Sets floating layout: windows keep the place and size they ask for
+Sets floating layout: windows keep the place and size they ask for.
 .TP
 .B Mod1\-Shift\-y
-Cycle thru all layouts
+Cycle through all layouts.
 .TP
 .B Mod1\-j
 Focus next window.
@@ -77,16 +94,22 @@ Focus next window.
 Focus previous window.
 .TP
 .B Mod1\-Shift\-j
-Move the focussed window down the stack
+Move the focussed window down the stack.
 .TP
 .B Mod1\-Shift\-k
-Move the focussed window up the stack
+Move the focussed window up the stack.
 .TP
 .B Mod1\-l
 Increase master area size.
 .TP
 .B Mod1\-h
 Decrease master area size.
+.TP
+.B Mod1\-p
+Grow the first stack window.
+.TP
+.B Mod1\-o
+Shrink the first stack window.
 .TP
 .B Mod1\-Return
 Swaps the focused window to/from master area (tiled layouts only).
@@ -95,39 +118,46 @@ Swaps the focused window to/from master area (tiled layouts only).
 Focus the window that raised an urgent hint. If no such window in current desktop,
 search other desktops, and focus the desktop and window that raised the urgent hint.
 .TP
-.B Mod1\-Shift\-{Left,Right}
-Rotate to the next/previous desktop
-.TP
-.B Mod1\-Shift\-c
+.B Mod1\-c
 Close focused window.
+.TP
+.B Mod1\-{1..4}
+Move to the nth desktop. By default,
+.I hellxcb
+is configured with four desktops.
+.TP
+.B Mod1\-Shift\-{1..4}
+Move focused window to the nth desktop.
+.TP
+.B Mod1\-Control\-{h,l}
+Move to the previous/next desktop.
+.TP
+.B Mod1\-Shift\-{h,l}
+Move to the previous/next desktop that has windows.
 .TP
 .B Mod1\-Tab
 Toggles to the last selected desktop.
 .TP
-.B Mod1\-Shift\-q
-Quit hellxcb.
+.B Mod1\-Control\-r
+Quit hellxcb with exit status 0.
 .TP
-.B Mod1\-F{1..n}
-Move to the nth workspace. By default,
-.I hellxcb
-is configured with four workspaces.
-.TP
-.B Mod1\-Shift\-F{1..n}
-Move focused window to nth workspace.
+.B Mod1\-Control\-q
+Quit hellxcb with exit status 1. A loop in
+.I .xinitrc
+can use the two exit statuses to tell a restart from a quit.
 .TP
 .B Mod1\-m
 Move the mouse pointer to the rightmost screen edge.
 .TP
 .B Mod1\-Button1
-Dragging the mouse will move the selected window
+Dragging the mouse will move the selected window and make it float.
 .TP
 .B Mod1\-Button3
-Dragging the mouse will resize the selected window
+Dragging the mouse will resize the selected window and make it float.
 .TP
 .B Mod4\-Button3
 will bring up
 .I dmenu
-.TP
 .SH CUSTOMIZATION
 .I hellxcb
 is customized by editing
