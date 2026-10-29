@@ -47,9 +47,12 @@ install:
 	echo installing manual page to ${DESTDIR}${MANPREFIX}/man.1
 	install -Dm644 ${WMNAME}.1 ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
 
+check: all
+	sh tests/smoke.sh ./$(PACKAGE)
+
 uninstall:
 	echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
 	rm -f ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
 	rm -f /usr/bin/$(PACKAGE)
 
-.PHONY: all clean install uninstall
+.PHONY: all check clean install uninstall
