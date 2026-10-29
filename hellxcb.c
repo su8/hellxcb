@@ -56,8 +56,8 @@ MA 02110-1301, USA.
 
 static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering the mouse around each window */
 
-static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
-static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
+static const char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
+static const char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
 
 #define LENGTH(x) (sizeof(x)/sizeof(*x))
 #define CLEANMASK(mask) (mask & ~(numlockmask | XCB_MOD_MASK_LOCK))
@@ -166,7 +166,7 @@ static void destroynotify(xcb_generic_event_t *e);
 static void dropdown(const Arg *arg);
 static void enternotify(xcb_generic_event_t *e);
 static void focusurgent(const Arg *arg);
-static unsigned int getcolor(char* color);
+static unsigned int getcolor(const char *color);
 static void grabbuttons(client *c);
 static void grabkeys(void);
 static void grid(int h, int y);
@@ -272,14 +272,14 @@ static inline void xcb_border_width(xcb_connection_t *con, xcb_window_t win, int
 }
 
 /* retieve RGB color from hex (think of html) */
-static unsigned int xcb_get_colorpixel(char *hex) {
+static unsigned int xcb_get_colorpixel(const char *hex) {
     char strgroups[3][3]  = {{hex[1], hex[2], '\0'}, {hex[3], hex[4], '\0'}, {hex[5], hex[6], '\0'}};
     unsigned int rgb16[3] = {(strtol(strgroups[0], NULL, 16)), (strtol(strgroups[1], NULL, 16)), (strtol(strgroups[2], NULL, 16))};
     return (rgb16[0] << 16) + (rgb16[1] << 8) + rgb16[2];
 }
 
 /* wrapper to get atoms using xcb */
-static void xcb_get_atoms(char **names, xcb_atom_t *atoms, unsigned int count) {
+static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int count) {
     xcb_intern_atom_cookie_t cookies[count];
     xcb_intern_atom_reply_t  *reply;
 
@@ -549,7 +549,7 @@ void focusurgent(const Arg *arg) {
 
 /* get a pixel with the requested color
  * to fill some window area - borders */
-unsigned int getcolor(char* color) {
+unsigned int getcolor(const char *color) {
     xcb_colormap_t map = screen->default_colormap;
     xcb_alloc_color_reply_t *c;
     unsigned int r, g, b, rgb, pixel;
@@ -1090,7 +1090,7 @@ int setup(int default_screen) {
     wh = screen->height_in_pixels - PANEL_HEIGHT;
     for (unsigned int i=0; i<DESKTOPS; i++) save_desktop(i);
 
-    char *colours[] = {(char *)FOCUS_COLOUR1, (char *)FOCUS_COLOUR2, (char *)FOCUS_COLOUR3};
+    const char *colours[] = { FOCUS_COLOUR1, FOCUS_COLOUR2, FOCUS_COLOUR3 };
     for (unsigned short int z = 0; z < 3; z++) { randomRGB[z] = getcolor(colours[z]); }
     win_unfocus = getcolor(UNFOCUS);
 
