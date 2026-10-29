@@ -25,14 +25,11 @@ MA 02110-1301, USA.
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/wait.h>
 #include <X11/keysym.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
-
-/* TODO: Reduce SLOC */
 
 /* set this to 1 to enable debug prints */
 #if 0
@@ -177,7 +174,6 @@ static void killclient();
 static void last_desktop();
 static void mappingnotify(xcb_generic_event_t *e);
 static void maprequest(xcb_generic_event_t *e);
-/*static void monocle(int h, int y);*/
 static void move_down();
 static void move_up();
 static void mouse_aside();
@@ -197,7 +193,6 @@ static void save_desktop(int i);
 static void select_desktop(int i);
 static void setfullscreen(client *c, bool fullscrn);
 static int setup(int default_screen);
-static void sigchld();
 static void spawn(const Arg *arg);
 static void stack(int h, int y);
 static void swap_master();
@@ -290,9 +285,8 @@ static void xcb_get_atoms(char **names, xcb_atom_t *atoms, unsigned int count) {
         reply = xcb_intern_atom_reply(dis, cookies[i], NULL); /* TODO: Handle error */
         if (reply) {
             DEBUGP("%s : %d\n", names[i], reply->atom);
-            //printf("%.*s\n", names[i]);
             atoms[i] = reply->atom; free(reply);
-        } else puts("WARN: hellxcb failed to register %s atom.\nThings might not work right.");
+        } else warnx("failed to register %s atom, things might not work right", names[i]);
     }
 }
 
@@ -616,7 +610,6 @@ void killclient() {
     if (got) deletewindow(current->win);
     else xcb_kill_client(dis, current->win);
     removeclient(current);
-    //wmName[0] = '\0';
     desktopinfo();
 }
 
@@ -647,7 +640,6 @@ void maprequest(xcb_generic_event_t *e) {
     xcb_window_t                       windows[] = { ev->window }, transient = 0;
     xcb_get_window_attributes_reply_t  *attr[1];
     xcb_icccm_get_wm_class_reply_t     ch;
-    xcb_get_geometry_reply_t           *geometry;
     xcb_get_property_reply_t           *prop_reply;
 
     xcb_get_attributes(windows, attr, 1);
@@ -668,15 +660,7 @@ void maprequest(xcb_generic_event_t *e) {
                 floating = rules[i].floating;
                 break;
             }
-        //snprintf(wmName, sizeof(wmName) - 1, "%s", ch.class_name);
         xcb_icccm_get_wm_class_reply_wipe(&ch);
-    }
-
-    /* might be useful in future */
-    if ((geometry = xcb_get_geometry_reply(dis, xcb_get_geometry(dis, ev->window), NULL))) { /* TODO: error handling */
-        DEBUGP("geom: %ux%u+%d+%d\n", geometry->width, geometry->height,
-                                      geometry->x,     geometry->y);
-        free(geometry);
     }
 
     if (cd != newdsk) select_desktop(newdsk);
@@ -803,11 +787,6 @@ void mousemotion(const Arg *arg) {
     DEBUG("xcb: ungrab");
     xcb_ungrab_pointer(dis, XCB_CURRENT_TIME);
 }
-
-/* each window should cover all the available screen space */
-/*void monocle(int hh, int cy) {
-    for (client *c=head; c; c=c->next) if (!ISFFT(c)) xcb_move_resize(dis, c->win, 0, cy, ww, hh);
-}*/
 
 /* move the current client, to current->next
  * and current->next to current client's position */
@@ -1066,7 +1045,7 @@ int setup_keyboard(void)
  * and propagate the suported net atoms
  */
 int setup(int default_screen) {
-    sigchld();
+    if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) err(EXIT_FAILURE, "cannot ignore SIGCHLD"); /* children are reaped by the kernel */
     screen = xcb_screen_of_display(dis, default_screen);
     if (!screen) err(EXIT_FAILURE, "error: cannot aquire screen\n");
 
@@ -1110,17 +1089,12 @@ int setup(int default_screen) {
     return 0;
 }
 
-void sigchld() {
-    if (signal(SIGCHLD, sigchld) == SIG_ERR)
-        err(EXIT_FAILURE, "cannot install SIGCHLD handler");
-    while(0 < waitpid(-1, NULL, WNOHANG));
-}
-
 /* execute a command */
 void spawn(const Arg *arg) {
     if (fork()) return;
     if (dis) close(xcb_get_file_descriptor(dis));
     setsid();
+    signal(SIGCHLD, SIG_DFL); /* SIG_IGN would be inherited across exec */
     execvp((char*)arg->com[0], (char**)arg->com);
     fprintf(stderr, "error: execvp %s", (char *)arg->com[0]);
     perror(" failed"); /* also prints the err msg */
@@ -1238,8 +1212,7 @@ void unmapnotify(xcb_generic_event_t *e) {
  *
  * a window should have borders in any case, except if
  *  - the window is the only window on screen
- *  - the window is fullscreen
- *  - the mode is MONOCLE and the window is not floating or transient */
+ *  - the window is fullscreen */
 void update_current(client *c) {
     if (!head) {
         xcb_delete_property(dis, screen->root, netatoms[NET_ACTIVE]);
@@ -1261,8 +1234,6 @@ void update_current(client *c) {
     for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
         xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
         xcb_border_width(dis, c->win, (!head->next || c->isfullscrn) ? 0 : BORDER_WIDTH);
-        //if (CLICK_TO_FOCUS) xcb_grab_button(dis, 1, c->win, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
-        //   screen->root, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_BUTTON_MASK_ANY);
         if (c != current) w[c->isfullscrn ? --fl : ISFFT(c) ? --ft : --n] = c->win;
     }
     rgb++;
@@ -1271,7 +1242,6 @@ void update_current(client *c) {
 
     xcb_change_property(dis, XCB_PROP_MODE_REPLACE, screen->root, netatoms[NET_ACTIVE], XCB_ATOM_WINDOW, 32, 1, &current->win);
     xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, current->win, XCB_CURRENT_TIME);
-    //if (CLICK_TO_FOCUS) xcb_ungrab_button(dis, XCB_BUTTON_INDEX_1, XCB_NONE, current->win);
     tile();
 }
 

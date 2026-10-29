@@ -29,7 +29,7 @@ MA 02110-1301, USA.
 #define SHOW_PANEL      True      /* show panel by default on exec */
 #define TOP_PANEL       True      /* False mean panel is on bottom */
 #define PANEL_HEIGHT    18        /* 0 for no space for panel, thus no panel */
-#define DEFAULT_MODE    TILE      /* TILE MONOCLE BSTACK GRID */
+#define DEFAULT_MODE    TILE      /* TILE BSTACK GRID */
 #define ATTACH_ASIDE    True      /* False means new window is master */
 #define FOLLOW_MOUSE    True      /* Focus the window the mouse just entered */
 #define FOLLOW_WINDOW   False     /* Follow the window when moved to a different desktop */
@@ -42,7 +42,7 @@ MA 02110-1301, USA.
 #define DESKTOPS        4         /* number of desktops - edit DESKTOPCHANGE keys to suit */
 #define DEFAULT_DESKTOP 0         /* the desktop to focus on exec */
 #define MINWSZ          50        /* minimum window size in pixels */
-#define HELLXCB_TAG_AND_MODE "/tmp/hellxcb.txt" /* file to output the current focused window and it's style e.g: tiled bstack monocle */
+#define HELLXCB_TAG_AND_MODE "/tmp/hellxcb.txt" /* file to output the current focused window and it's style e.g: tile bstack grid */
 
 /* open applications to specified desktop with specified mode.
  * if desktop is negative, then current is assumed */
