@@ -464,7 +464,7 @@ void cycle_mode(const Arg *arg) {
 
 /* close the window */
 void deletewindow(xcb_window_t w) {
-    xcb_client_message_event_t ev;
+    xcb_client_message_event_t ev = {0}; /* unused data and padding go to the client too */
     ev.response_type = XCB_CLIENT_MESSAGE;
     ev.window = w;
     ev.format = 32;
