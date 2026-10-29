@@ -1025,9 +1025,10 @@ void rotate(const Arg *arg) {
 
 /* jump and focus the next or previous desktop that has clients */
 void rotate_filled(const Arg *arg) {
-    int n = arg->i;
-    while (n < DESKTOPS && !desktops[(DESKTOPS + current_desktop + n) % DESKTOPS].head) (n += arg->i);
-    change_desktop(&(Arg){.i = (DESKTOPS + current_desktop + n) % DESKTOPS});
+    for (int k = 1; k < DESKTOPS; k++) {
+        int d = (DESKTOPS + current_desktop + k*arg->i) % DESKTOPS;
+        if (desktops[d].head) { change_desktop(&(Arg){.i = d}); return; }
+    }
 }
 
 /* main event loop - on receival of an event call the appropriate event handler */
