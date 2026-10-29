@@ -17,8 +17,6 @@
 VERSION = xcb-su8-git
 WMNAME  = hellxcb
 
-DEBUG 	 = 0
-
 PREFIX ?= /usr/local
 BINDIR ?= ${PREFIX}/bin
 MANPREFIX ?= ${PREFIX}/share/man
@@ -28,10 +26,10 @@ PROG=hellxcb.c
 
 ADDITIONALFLAGS += -DVERSION=\"${VERSION}\" -DWMNAME=\"${WMNAME}\"
 
-INCS = -I. -I. `pkg-config --cflags xcb xcb-aux xcb-icccm xcb-keysyms xcb-ewmh`
-LIBS = -lX11 -lc `pkg-config --libs xcb xcb-icccm xcb-keysyms`
+INCS = -I. `pkg-config --cflags xcb xcb-icccm xcb-keysyms xproto`
+LIBS = `pkg-config --libs xcb xcb-icccm xcb-keysyms`
 
-CFLAGS += ${ADDITIONALFLAGS} -g2 -Wall -Wextra -O2 -I/usr/include/freetype2 -I/usr/X11R6/include -L/usr/X11R6/lib -I/usr/include/X11 -lX11 -lXft -std=c99 -pipe -pedantic -Wundef -Wshadow -W -Wwrite-strings -Wcast-align -Wstrict-overflow=5 -Wconversion -Wpointer-arith -Wstrict-prototypes -Wformat=2 -Wsign-compare -Wendif-labels -Wredundant-decls -Winit-self
+CFLAGS += ${ADDITIONALFLAGS} -g2 -Wall -Wextra -O2 -std=c99 -pipe -pedantic -Wundef -Wshadow -W -Wwrite-strings -Wcast-align -Wstrict-overflow=5 -Wconversion -Wpointer-arith -Wstrict-prototypes -Wformat=2 -Wsign-compare -Wendif-labels -Wredundant-decls -Winit-self
 LDFLAGS  += ${LIBS}
 
 all:
@@ -39,11 +37,10 @@ all:
 
 clean:
 	echo cleaning
-	rm -fv ${WMNAME} ${OBJ} ${WMNAME}-${VERSION}.tar.gz
-	rm -f $(PACKAGE)
+	rm -fv $(PACKAGE) ${WMNAME}-${VERSION}.tar.gz
 
 install:
-	install -D -s -m 755 $(PACKAGE) /usr/bin/$(PACKAGE)
+	install -D -s -m 755 $(PACKAGE) ${DESTDIR}${BINDIR}/$(PACKAGE)
 	echo installing manual page to ${DESTDIR}${MANPREFIX}/man.1
 	install -Dm644 ${WMNAME}.1 ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
 
@@ -53,6 +50,6 @@ check: all
 uninstall:
 	echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
 	rm -f ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
-	rm -f /usr/bin/$(PACKAGE)
+	rm -f ${DESTDIR}${BINDIR}/$(PACKAGE)
 
 .PHONY: all check clean install uninstall
