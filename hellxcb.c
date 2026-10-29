@@ -864,6 +864,7 @@ void mousemotion(const Arg *arg) {
  * and current->next to current client's position */
 void move_down() {
     /* p is previous, c is current, n is next, if current is head n is last */
+    if (!current) return;
     client *p = NULL, *n = (current->next) ? current->next:head;
     if (!(p = prev_client(current))) return;
     /*
