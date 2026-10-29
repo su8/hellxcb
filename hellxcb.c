@@ -175,6 +175,7 @@ static void grid(int h, int y);
 static void keypress(xcb_generic_event_t *e);
 static void killclient();
 static void last_desktop();
+static void mappingnotify(xcb_generic_event_t *e);
 static void maprequest(xcb_generic_event_t *e);
 /*static void monocle(int h, int y);*/
 static void move_down();
@@ -216,6 +217,7 @@ static int wh, ww, mode = DEFAULT_MODE, master_size = 0, growth = 0;
 static unsigned int numlockmask = 0, win_unfocus, win_focus;
 static xcb_connection_t *dis;
 static xcb_screen_t *screen;
+static xcb_key_symbols_t *keysyms; /* keyboard map, refreshed on MappingNotify */
 static client *head, *prevfocus, *current;
 
 static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
@@ -269,30 +271,6 @@ static inline void xcb_raise_window(xcb_connection_t *con, xcb_window_t win) {
 static inline void xcb_border_width(xcb_connection_t *con, xcb_window_t win, int w) {
     unsigned int arg[1] = { w };
     xcb_configure_window(con, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, arg);
-}
-
-/* wrapper to get xcb keysymbol from keycode */
-static xcb_keysym_t xcb_get_keysym(xcb_keycode_t keycode) {
-    xcb_key_symbols_t *keysyms;
-    xcb_keysym_t       keysym;
-
-    if (!(keysyms = xcb_key_symbols_alloc(dis))) return 0;
-    keysym = xcb_key_symbols_get_keysym(keysyms, keycode, 0);
-    xcb_key_symbols_free(keysyms);
-
-    return keysym;
-}
-
-/* wrapper to get xcb keycodes from keysymbol */
-static xcb_keycode_t* xcb_get_keycodes(xcb_keysym_t keysym) {
-    xcb_key_symbols_t *keysyms;
-    xcb_keycode_t     *keycode;
-
-    if (!(keysyms = xcb_key_symbols_alloc(dis))) return NULL;
-    keycode = xcb_key_symbols_get_keycode(keysyms, keysym);
-    xcb_key_symbols_free(keysyms);
-
-    return keycode;
 }
 
 /* retieve RGB color from hex (think of html) */
@@ -588,10 +566,11 @@ void grabkeys(void) {
     unsigned int modifiers[] = { 0, XCB_MOD_MASK_LOCK, numlockmask, numlockmask|XCB_MOD_MASK_LOCK };
     xcb_ungrab_key(dis, XCB_GRAB_ANY, screen->root, XCB_MOD_MASK_ANY);
     for (unsigned int i=0; i<LENGTH(keys); i++) {
-        keycode = xcb_get_keycodes(keys[i].keysym);
+        if (!(keycode = xcb_key_symbols_get_keycode(keysyms, keys[i].keysym))) continue;
         for (unsigned int k=0; keycode[k] != XCB_NO_SYMBOL; k++)
             for (unsigned int m=0; m<LENGTH(modifiers); m++)
                 xcb_grab_key(dis, 1, screen->root, keys[i].mod | modifiers[m], keycode[k], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+        free(keycode);
     }
 }
 
@@ -616,7 +595,7 @@ void grid(int hh, int cy) {
 /* on the press of a key check to see if there's a binded function to call */
 void keypress(xcb_generic_event_t *e) {
     xcb_key_press_event_t *ev       = (xcb_key_press_event_t *)e;
-    xcb_keysym_t           keysym   = xcb_get_keysym(ev->detail);
+    xcb_keysym_t           keysym   = xcb_key_symbols_get_keysym(keysyms, ev->detail, 0);
     DEBUGP("xcb: keypress: code: %d mod: %d\n", ev->detail, ev->state);
     for (unsigned int i=0; i<LENGTH(keys); i++)
         if (keysym == keys[i].keysym && CLEANMASK(keys[i].mod) == CLEANMASK(ev->state) && keys[i].func)
@@ -644,6 +623,13 @@ void killclient() {
 /* focus the previously focused desktop */
 void last_desktop() {
     change_desktop(&(Arg){.i = previous_desktop});
+}
+
+/* the keyboard map changed (e.g. setxkbmap): refresh it and grab the keys again */
+void mappingnotify(xcb_generic_event_t *e) {
+    xcb_mapping_notify_event_t *ev = (xcb_mapping_notify_event_t*)e;
+    xcb_refresh_keyboard_mapping(keysyms, ev);
+    if (ev->request == XCB_MAPPING_KEYBOARD) grabkeys();
 }
 
 /* a map request is received when a window wants to display itself
@@ -1057,7 +1043,7 @@ int setup_keyboard(void)
     modmap = xcb_get_modifier_mapping_keycodes(reply);
     if (!modmap) return -1;
 
-    numlock = xcb_get_keycodes(XK_Num_Lock);
+    if (!(numlock = xcb_key_symbols_get_keycode(keysyms, XK_Num_Lock))) { free(reply); return 0; }
     for (unsigned int i=0; i<8; i++)
        for (unsigned int j=0; j<reply->keycodes_per_modifier; j++) {
            xcb_keycode_t keycode = modmap[i * reply->keycodes_per_modifier + j];
@@ -1070,6 +1056,7 @@ int setup_keyboard(void)
                }
        }
 
+    free(numlock); free(reply);
     return 0;
 }
 
@@ -1092,7 +1079,7 @@ int setup(int default_screen) {
     win_unfocus = getcolor(UNFOCUS);
 
     /* setup keyboard */
-    if (setup_keyboard() == -1)
+    if (!(keysyms = xcb_key_symbols_alloc(dis)) || setup_keyboard() == -1)
         err(EXIT_FAILURE, "error: failed to setup keyboard\n");
 
     /* set up atoms for dialog/notification windows */
@@ -1115,6 +1102,7 @@ int setup(int default_screen) {
     events[XCB_ENTER_NOTIFY]        = enternotify;
     events[XCB_KEY_PRESS]           = keypress;
     events[XCB_MAP_REQUEST]         = maprequest;
+    events[XCB_MAPPING_NOTIFY]      = mappingnotify;
     events[XCB_PROPERTY_NOTIFY]     = propertynotify;
     events[XCB_UNMAP_NOTIFY]        = unmapnotify;
 
