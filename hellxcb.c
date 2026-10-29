@@ -163,6 +163,7 @@ static void cycle_mode(const Arg *arg);
 static void deletewindow(xcb_window_t w);
 static void desktopinfo(void);
 static void destroynotify(xcb_generic_event_t *e);
+static void dropdown(const Arg *arg);
 static void enternotify(xcb_generic_event_t *e);
 static void focusurgent();
 static unsigned int getcolor(char* color);
@@ -214,6 +215,8 @@ static xcb_connection_t *dis;
 static xcb_screen_t *screen;
 static xcb_key_symbols_t *keysyms; /* keyboard map, refreshed on MappingNotify */
 static client *head, *prevfocus, *current;
+static xcb_window_t dropdown_win = XCB_WINDOW_NONE; /* the drop-down terminal, not a client */
+static bool dropdown_shown = false;
 
 static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
 static desktop desktops[DESKTOPS];
@@ -496,7 +499,27 @@ void destroynotify(xcb_generic_event_t *e) {
     xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)e;
     client *c = wintoclient(ev->window);
     if (c) removeclient(c);
+    else if (ev->window == dropdown_win) { dropdown_win = XCB_WINDOW_NONE; dropdown_shown = false; update_current(current); }
     desktopinfo();
+}
+
+/* show or hide the drop-down terminal, start it the first time
+ * it is not a client: tiling, desktop switching and the window counts ignore it */
+void dropdown(const Arg *arg) {
+    if (!dropdown_win) { spawn(arg); return; } /* maprequest() shows it once it maps */
+    if ((dropdown_shown = !dropdown_shown)) {
+        int w = ww * DROPDOWN_WIDTH / 100, h = wh * DROPDOWN_HEIGHT / 100;
+        xcb_border_width(dis, dropdown_win, BORDER_WIDTH);
+        xcb_change_window_attributes(dis, dropdown_win, XCB_CW_BORDER_PIXEL, &win_focus);
+        xcb_move_resize(dis, dropdown_win, (ww - w) / 2, (TOP_PANEL && showpanel) ? PANEL_HEIGHT : 0,
+                        w - 2*BORDER_WIDTH, h - 2*BORDER_WIDTH);
+        xcb_map_window(dis, dropdown_win);
+        xcb_raise_window(dis, dropdown_win);
+        xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, dropdown_win, XCB_CURRENT_TIME);
+    } else {
+        xcb_unmap_window(dis, dropdown_win);
+        update_current(current);
+    }
 }
 
 /* when the mouse enters a window's borders
@@ -507,7 +530,7 @@ void enternotify(xcb_generic_event_t *e) {
     if (!FOLLOW_MOUSE) return;
     DEBUG("xcb: enter notify");
     client *c = wintoclient(ev->event);
-    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR
+    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !dropdown_shown
           && !(current && current->istransient)) update_current(c); /* an open dialog keeps the focus */
 }
 
@@ -653,6 +676,12 @@ void maprequest(xcb_generic_event_t *e) {
     int cd = current_desktop, newdsk = current_desktop;
     if (xcb_icccm_get_wm_class_reply(dis, xcb_icccm_get_wm_class(dis, ev->window), &ch, NULL)) { /* TODO: error handling */
         DEBUGP("class: %s instance: %s\n", ch.class_name, ch.instance_name);
+        if (!dropdown_win && (!strcmp(ch.class_name, DROPDOWN_CLASS) || !strcmp(ch.instance_name, DROPDOWN_CLASS))) {
+            xcb_icccm_get_wm_class_reply_wipe(&ch);
+            dropdown_win = ev->window;
+            dropdown(NULL); /* show it */
+            return;
+        }
         for (unsigned int i=0; i<LENGTH(rules); i++)
             if (strstr(ch.class_name, rules[i].class) || strstr(ch.instance_name, rules[i].class)) {
                 follow = rules[i].follow;
@@ -1241,7 +1270,8 @@ void update_current(client *c) {
     for (int i = count - 1; i >= 0; i--) xcb_raise_window(dis, w[i]);
 
     xcb_change_property(dis, XCB_PROP_MODE_REPLACE, screen->root, netatoms[NET_ACTIVE], XCB_ATOM_WINDOW, 32, 1, &current->win);
-    xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, current->win, XCB_CURRENT_TIME);
+    if (dropdown_shown) xcb_raise_window(dis, dropdown_win); /* the drop-down terminal stays on top with the focus */
+    xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, dropdown_shown ? dropdown_win : current->win, XCB_CURRENT_TIME);
     tile();
 }
 

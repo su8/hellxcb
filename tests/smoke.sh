@@ -71,6 +71,17 @@ A=$(xdotool getactivewindow)
 B=$(xdotool search --onlyvisible --class XTerm | grep -vx "$A" | head -1)
 xdotool mousemove --window "$B" 30 30; sleep 0.5
 expect "focus follows the mouse after a floating window closed" "$(xdotool getactivewindow)" "$B"
+
+xdotool key super+z; sleep 1.5
+D=$(xdotool search --onlyvisible --class hellxcb-dropdown | head -1)
+expect "Super+z starts the drop-down terminal" "$([ -n "$D" ] && [ "$(geom "$D" WIDTH)" -gt 700 ] && echo yes)" yes
+expect "the drop-down terminal has the focus" "$(xdotool getwindowfocus)" "$D"
+expect "the drop-down terminal is not counted" "$(count)" "[tag 1 win: 2]"
+xdotool key super+z; sleep 0.5
+expect "Super+z hides it" "$(xdotool search --onlyvisible --class hellxcb-dropdown)" ""
+xdotool key super+z; sleep 0.5
+expect "Super+z shows it again" "$(xdotool search --onlyvisible --class hellxcb-dropdown)" "$D"
+pkill -f "class hellxcb-dropdown"; sleep 0.5; check "the drop-down terminal exits"
 kill $P1 $P2
 
 exit $fail

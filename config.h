@@ -59,6 +59,12 @@ static const AppRule rules[] = { \
 static const char *termcmd[] = { "xterm",     NULL };
 static const char *menucmd[] = { "dmenu_run", NULL };
 
+/* drop-down terminal: Super+z shows and hides it, the first press starts it */
+#define DROPDOWN_CLASS  "hellxcb-dropdown" /* window class or instance name the terminal gets from dropdowncmd */
+#define DROPDOWN_WIDTH  100                /* percent of the screen width */
+#define DROPDOWN_HEIGHT 40                 /* percent of the screen height */
+static const char *dropdowncmd[] = { "xterm", "-class", DROPDOWN_CLASS, NULL };
+
 #define DESKTOPCHANGE(K,N) \
     {  MOD1,             K,              change_desktop, {.i = N}}, \
     {  MOD1|ShiftMask,   K,              client_to_desktop, {.i = N}},
@@ -93,6 +99,7 @@ static key keys[] = {
     {  MOD1|CONTROL,     XK_q,          quit,              {.i = 1}}, /* quit with exit value 1 */
     {  MOD1|SHIFT,       XK_Return,     spawn,             {.com = termcmd}},
     {  MOD4,             XK_v,          spawn,             {.com = menucmd}},
+    {  MOD4,             XK_z,          dropdown,          {.com = dropdowncmd}},
        DESKTOPCHANGE(    XK_1,                             0)
        DESKTOPCHANGE(    XK_2,                             1)
        DESKTOPCHANGE(    XK_3,                             2)
