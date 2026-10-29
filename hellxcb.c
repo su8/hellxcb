@@ -15,23 +15,21 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 */
+#define _POSIX_C_SOURCE 200809L /* O_NOFOLLOW, fdopen */
 #include <stdlib.h>
 #include <stdio.h>
 #include <err.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include <pthread.h>
-#include <sys/wait.h>
 #include <X11/keysym.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
-
-/* TODO: Reduce SLOC */
 
 /* set this to 1 to enable debug prints */
 #if 0
@@ -56,26 +54,20 @@ MA 02110-1301, USA.
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
 #define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 
-static unsigned int workspaces[10][2] = { {0U, 0U} }; /* show how many windows are opened in all tags/workspaces */
-static unsigned int currentworkspace = 0U; /* to count how many windows are opened in all tags/workspaces */
-static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using the manual resizing/moving a window, this variable is used as flag to set wheter it will steal the focus from another window or not */
-static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
-static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
-static unsigned int prevworkspace = 1U; /* used to count the number of opened windows and workaround the problem when there is only 1 window as it was showing 0 in the past */
 static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering the mouse around each window */
-static unsigned int randomRGBclick[3] = {0U}; /* show different colour when clicking the left mouse button in some window */
 
-static char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
-static char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
+static const char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
+static const char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
 
 #define LENGTH(x) (sizeof(x)/sizeof(*x))
+#define MIN(a,b)  ((a) < (b) ? (a) : (b))
 #define CLEANMASK(mask) (mask & ~(numlockmask | XCB_MOD_MASK_LOCK))
 #define BUTTONMASK      XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_BUTTON_RELEASE
 #define ISFFT(c)        (c->isfullscrn || c->isfloating || c->istransient)
 #define USAGE           "usage: hellxcb [-h] [-v]"
 
 enum { RESIZE, MOVE };
-enum { TILE, BSTACK, GRID, MODES };
+enum { TILE, BSTACK, GRID, FLOAT, MODES };
 enum { WM_PROTOCOLS, WM_DELETE_WINDOW, WM_COUNT };
 enum { NET_SUPPORTED, NET_FULLSCREEN, NET_WM_STATE, NET_ACTIVE, NET_COUNT };
 
@@ -143,7 +135,7 @@ typedef struct client {
  */
 typedef struct {
     int mode, growth;
-    float master_size;
+    int master_size;
     client *head, *current, *prevfocus;
     bool showpanel;
 } desktop;
@@ -161,8 +153,6 @@ typedef struct {
 } AppRule;
 
 /* function prototypes sorted alphabetically */
-static void *clickToChangeColour(void *s);
-static void aDontStealFocus(const Arg *arg);
 static client* addwindow(xcb_window_t w);
 static void buttonpress(xcb_generic_event_t *e);
 static void change_desktop(const Arg *arg);
@@ -174,24 +164,25 @@ static void cycle_mode(const Arg *arg);
 static void deletewindow(xcb_window_t w);
 static void desktopinfo(void);
 static void destroynotify(xcb_generic_event_t *e);
+static void dropdown(const Arg *arg);
 static void enternotify(xcb_generic_event_t *e);
-static void focusurgent();
-static unsigned int getcolor(char* color);
+static void focusurgent(const Arg *arg);
+static unsigned int getcolor(const char *color);
 static void grabbuttons(client *c);
 static void grabkeys(void);
 static void grid(int h, int y);
 static void keypress(xcb_generic_event_t *e);
-static void killclient();
-static void last_desktop();
+static void killclient(const Arg *arg);
+static void last_desktop(const Arg *arg);
+static void mappingnotify(xcb_generic_event_t *e);
 static void maprequest(xcb_generic_event_t *e);
-/*static void monocle(int h, int y);*/
-static void move_down();
-static void move_up();
-static void mouse_aside();
+static void move_down(const Arg *arg);
+static void move_up(const Arg *arg);
+static void mouse_aside(const Arg *arg);
 static void mousemotion(const Arg *arg);
-static void next_win();
-static client* prev_client();
-static void prev_win();
+static void next_win(const Arg *arg);
+static client* prev_client(client *c);
+static void prev_win(const Arg *arg);
 static void propertynotify(xcb_generic_event_t *e);
 static void quit(const Arg *arg);
 static void removeclient(client *c);
@@ -204,14 +195,13 @@ static void save_desktop(int i);
 static void select_desktop(int i);
 static void setfullscreen(client *c, bool fullscrn);
 static int setup(int default_screen);
-static void sigchld();
 static void spawn(const Arg *arg);
 static void stack(int h, int y);
-static void swap_master();
+static void swap_master(const Arg *arg);
 static void switch_mode(const Arg *arg);
 static void tile(void);
-static void togglepanel();
-static void update_current(client *c, unsigned short int onClickColourChange);
+static void togglepanel(const Arg *arg);
+static void update_current(client *c);
 static void unmapnotify(xcb_generic_event_t *e);
 static client* wintoclient(xcb_window_t w);
 
@@ -224,7 +214,10 @@ static int wh, ww, mode = DEFAULT_MODE, master_size = 0, growth = 0;
 static unsigned int numlockmask = 0, win_unfocus, win_focus;
 static xcb_connection_t *dis;
 static xcb_screen_t *screen;
+static xcb_key_symbols_t *keysyms; /* keyboard map, refreshed on MappingNotify */
 static client *head, *prevfocus, *current;
+static xcb_window_t dropdown_win = XCB_WINDOW_NONE; /* the drop-down terminal, not a client */
+static bool dropdown_shown = false;
 
 static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
 static desktop desktops[DESKTOPS];
@@ -242,28 +235,28 @@ static void (*layout[MODES])(int h, int y) = {
 };
 
 /* get screen of display */
-static xcb_screen_t *xcb_screen_of_display(xcb_connection_t *con, int screen) {
+static xcb_screen_t *xcb_screen_of_display(xcb_connection_t *con, int num) {
     xcb_screen_iterator_t iter;
     iter = xcb_setup_roots_iterator(xcb_get_setup(con));
-    for (; iter.rem; --screen, xcb_screen_next(&iter)) if (screen == 0) return iter.data;
+    for (; iter.rem; --num, xcb_screen_next(&iter)) if (num == 0) return iter.data;
     return NULL;
 }
 
 /* wrapper to move and resize window */
 static inline void xcb_move_resize(xcb_connection_t *con, xcb_window_t win, int x, int y, int w, int h) {
-    unsigned int pos[4] = { x, y, w, h };
+    uint32_t pos[4] = { (uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h };
     xcb_configure_window(con, win, XCB_MOVE_RESIZE, pos);
 }
 
 /* wrapper to move window */
 static inline void xcb_move(xcb_connection_t *con, xcb_window_t win, int x, int y) {
-    unsigned int pos[2] = { x, y };
+    uint32_t pos[2] = { (uint32_t)x, (uint32_t)y };
     xcb_configure_window(con, win, XCB_MOVE, pos);
 }
 
 /* wrapper to resize window */
 static inline void xcb_resize(xcb_connection_t *con, xcb_window_t win, int w, int h) {
-    unsigned int pos[2] = { w, h };
+    uint32_t pos[2] = { (uint32_t)w, (uint32_t)h };
     xcb_configure_window(con, win, XCB_RESIZE, pos);
 }
 
@@ -275,54 +268,29 @@ static inline void xcb_raise_window(xcb_connection_t *con, xcb_window_t win) {
 
 /* wrapper to set xcb border width */
 static inline void xcb_border_width(xcb_connection_t *con, xcb_window_t win, int w) {
-    unsigned int arg[1] = { w };
+    uint32_t arg[1] = { (uint32_t)w };
     xcb_configure_window(con, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, arg);
 }
 
-/* wrapper to get xcb keysymbol from keycode */
-static xcb_keysym_t xcb_get_keysym(xcb_keycode_t keycode) {
-    xcb_key_symbols_t *keysyms;
-    xcb_keysym_t       keysym;
-
-    if (!(keysyms = xcb_key_symbols_alloc(dis))) return 0;
-    keysym = xcb_key_symbols_get_keysym(keysyms, keycode, 0);
-    xcb_key_symbols_free(keysyms);
-
-    return keysym;
-}
-
-/* wrapper to get xcb keycodes from keysymbol */
-static xcb_keycode_t* xcb_get_keycodes(xcb_keysym_t keysym) {
-    xcb_key_symbols_t *keysyms;
-    xcb_keycode_t     *keycode;
-
-    if (!(keysyms = xcb_key_symbols_alloc(dis))) return NULL;
-    keycode = xcb_key_symbols_get_keycode(keysyms, keysym);
-    xcb_key_symbols_free(keysyms);
-
-    return keycode;
-}
-
 /* retieve RGB color from hex (think of html) */
-static unsigned int xcb_get_colorpixel(char *hex) {
+static unsigned int xcb_get_colorpixel(const char *hex) {
     char strgroups[3][3]  = {{hex[1], hex[2], '\0'}, {hex[3], hex[4], '\0'}, {hex[5], hex[6], '\0'}};
-    unsigned int rgb16[3] = {(strtol(strgroups[0], NULL, 16)), (strtol(strgroups[1], NULL, 16)), (strtol(strgroups[2], NULL, 16))};
+    unsigned int rgb16[3] = {(unsigned int)strtoul(strgroups[0], NULL, 16), (unsigned int)strtoul(strgroups[1], NULL, 16), (unsigned int)strtoul(strgroups[2], NULL, 16)};
     return (rgb16[0] << 16) + (rgb16[1] << 8) + rgb16[2];
 }
 
 /* wrapper to get atoms using xcb */
-static void xcb_get_atoms(char **names, xcb_atom_t *atoms, unsigned int count) {
+static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int count) {
     xcb_intern_atom_cookie_t cookies[count];
     xcb_intern_atom_reply_t  *reply;
 
-    for (unsigned int i = 0; i < count; i++) cookies[i] = xcb_intern_atom(dis, 0, strlen(names[i]), names[i]);
+    for (unsigned int i = 0; i < count; i++) cookies[i] = xcb_intern_atom(dis, 0, (uint16_t)strlen(names[i]), names[i]);
     for (unsigned int i = 0; i < count; i++) {
         reply = xcb_intern_atom_reply(dis, cookies[i], NULL); /* TODO: Handle error */
         if (reply) {
             DEBUGP("%s : %d\n", names[i], reply->atom);
-            //printf("%.*s\n", names[i]);
             atoms[i] = reply->atom; free(reply);
-        } else puts("WARN: hellxcb failed to register %s atom.\nThings might not work right.");
+        } else warnx("failed to register %s atom, things might not work right", names[i]);
     }
 }
 
@@ -343,12 +311,6 @@ static int xcb_checkotherwm(void) {
     if (error) return 1;
     return 0;
 }
-
-/* manually set stealFocus to be used by FOLLOW_MOUSE macro */
- static void aDontStealFocus(const Arg *arg) {
-    (void)arg;
-    stealFocus = 0U;
- }
 
 /* create a new client and add the new window
  * window should notify of property change events
@@ -373,12 +335,12 @@ void buttonpress(xcb_generic_event_t *e) {
 
     client *c = wintoclient(ev->event);
     if (!c) return;
-    if (CLICK_TO_FOCUS && current != c && ev->detail == XCB_BUTTON_INDEX_1) update_current(c, 0);
+    if (CLICK_TO_FOCUS && current != c && ev->detail == XCB_BUTTON_INDEX_1) update_current(c);
 
     for (unsigned int i=0; i<LENGTH(buttons); i++)
         if (buttons[i].func && buttons[i].button == ev->detail &&
             CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state)) {
-            if (current != c) update_current(c, 0);
+            if (current != c) update_current(c);
             buttons[i].func(&(buttons[i].arg));
         }
 
@@ -396,9 +358,6 @@ void buttonpress(xcb_generic_event_t *e) {
  * then unmap the old windows
  * first all others then the current */
 void change_desktop(const Arg *arg) {
-    numOfWindows = 0U;
-    workspaces[arg->i][1] = 0U;
-    currentworkspace = arg->i;
     if (arg->i == current_desktop) return;
     previous_desktop = current_desktop;
     select_desktop(arg->i);
@@ -408,8 +367,7 @@ void change_desktop(const Arg *arg) {
     for (client *c=head; c; c=c->next) if (c != current) xcb_unmap_window(dis, c->win);
     if (current) xcb_unmap_window(dis, current->win);
     select_desktop(arg->i);
-    for (client *c2=head; c2; c2=c2->next) workspaces[arg->i][1]++;
-    tile(); update_current(current, 0);
+    tile(); update_current(current);
     desktopinfo();
 }
 
@@ -427,15 +385,6 @@ void cleanup(void) {
     xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, screen->root, XCB_CURRENT_TIME);
 }
 
-/* detached thread to swap the active window border colour when clicking on some window ]*/
-static void *clickToChangeColour(void *s) {
-    (void)s;
-    static unsigned int x = 0U;
-    while (x++ <= 3U) { update_current(current, 1); clickToChangeColour(NULL); sleep(1); }
-    x = 0U;
-    return NULL;
-}
-
 /* move a client to another desktop
  *
  * remove the current client from the current desktop's client list
@@ -447,18 +396,14 @@ void client_to_desktop(const Arg *arg) {
 
     select_desktop(arg->i);
     client *l = prev_client(head);
-    update_current(l ? (l->next = c):head ? (head->next = c):(head = c), 0);
+    update_current(l ? (l->next = c):head ? (head->next = c):(head = c));
 
     select_desktop(cd);
     if (c == head || !p) head = c->next; else p->next = c->next;
     c->next = NULL;
     xcb_unmap_window(dis, c->win);
-    update_current(prevfocus, 0);
+    update_current(prevfocus);
 
-    //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
-    workspaces[arg->i][1]++; 
-    numOfWindows = 0U;
-    workspaces[currentworkspace][1] = 0U;
     if (FOLLOW_WINDOW) change_desktop(arg); else tile();
     desktopinfo();
 }
@@ -481,7 +426,7 @@ void clientmessage(xcb_generic_event_t *e) {
           ||  (unsigned)ev->data.data32[2] == netatoms[NET_FULLSCREEN]))
         setfullscreen(c, (ev->data.data32[0] == 1 || (ev->data.data32[0] == 2 && !c->isfullscrn)));
     else if (c && ev->type == netatoms[NET_ACTIVE]) for (t=head; t && t!=c; t=t->next);
-    if (t) update_current(c, 0);
+    if (t) update_current(c);
     tile();
 }
 
@@ -495,12 +440,12 @@ void configurerequest(xcb_generic_event_t *e) {
     client *c = wintoclient(ev->window);
     if (c && c->isfullscrn) setfullscreen(c, true);
     else {
-        unsigned int v[7];
+        uint32_t v[7];
         unsigned int i = 0;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_X)              v[i++] = ev->x;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_Y)              v[i++] = (ev->y + (showpanel && TOP_PANEL)) ? PANEL_HEIGHT : 0;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (ev->width  < ww - BORDER_WIDTH) ? ev->width  : ww + BORDER_WIDTH;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (ev->height < wh - BORDER_WIDTH) ? ev->height : wh + BORDER_WIDTH;
+        if (ev->value_mask & XCB_CONFIG_WINDOW_X)              v[i++] = (uint32_t)ev->x;
+        if (ev->value_mask & XCB_CONFIG_WINDOW_Y)              v[i++] = (uint32_t)(ev->y + ((showpanel && TOP_PANEL) ? PANEL_HEIGHT : 0));
+        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (uint32_t)MIN(ev->width,  ww - 2*BORDER_WIDTH);
+        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (uint32_t)MIN(ev->height, wh - 2*BORDER_WIDTH);
         if (ev->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)   v[i++] = ev->border_width;
         if (ev->value_mask & XCB_CONFIG_WINDOW_SIBLING)        v[i++] = ev->sibling;
         if (ev->value_mask & XCB_CONFIG_WINDOW_STACK_MODE)     v[i++] = ev->stack_mode;
@@ -512,17 +457,15 @@ void configurerequest(xcb_generic_event_t *e) {
 /* cycle thru all of the tiling modes and reset all floating windows */
 void cycle_mode(const Arg *arg) {
     (void)arg;
-    static unsigned int x = 0U;
     for (client *c=head; c; c=c->next) c->isfloating = False;
-    if (x >= 3U) x = 0U;
-    mode = x++;
-    tile(); update_current(current, 0);
+    mode = (mode + 1) % MODES;
+    tile(); update_current(current);
     desktopinfo();
 }
 
 /* close the window */
 void deletewindow(xcb_window_t w) {
-    xcb_client_message_event_t ev;
+    xcb_client_message_event_t ev = {0}; /* unused data and padding go to the client too */
     ev.response_type = XCB_CLIENT_MESSAGE;
     ev.window = w;
     ev.format = 32;
@@ -533,28 +476,20 @@ void deletewindow(xcb_window_t w) {
     xcb_send_event(dis, 0, w, XCB_EVENT_MASK_NO_EVENT, (char*)&ev);
 }
 
-/* output info about the desktops on standard output stream
- *
- * the info is a list of ':' separated values for each desktop
- * desktop to desktop info is separated by ' ' single spaces
- * the info values are
- *   the desktop number/id
- *   the desktop's client count
- *   the desktop's tiling layout mode/id
- *   whether the desktop is the current focused (1) or not (0)
- *   whether any client in that desktop has received an urgent hint
- *
- * once the info is collected, immediately flush the stream */
+/* write the current desktop, its mode and the window count of every desktop
+ * to HELLXCB_TAG_AND_MODE, e.g. for a status bar */
 void desktopinfo(void) {
-    bool urgent = false;
-    int cd = current_desktop, n=0, d=0;
-    for (client *c; d<DESKTOPS; d++) {
-        for (select_desktop(d), c=head, n=0, urgent=false; c; c=c->next, ++n) if (c->isurgent) urgent = true;
-        ;
-        //fprintf(stdout, "%d:%d:%d:%d:%d%c", d, n, mode, current_desktop == cd, urgent, d+1==DESKTOPS?'\n':' ');
-    }
-    fflush(stdout);
-    if (cd != d-1) select_desktop(cd);
+    static const char *modes[] = { "tile", "bstack", "grid", "float" };
+    int n[DESKTOPS] = {0};
+    FILE *fp = NULL;
+    save_desktop(current_desktop);
+    for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) n[d]++;
+    /* O_NOFOLLOW: the file is in a shared /tmp, never write through a symlink planted there */
+    int fd = open(HELLXCB_TAG_AND_MODE, O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW, 0644);
+    if (fd < 0 || !(fp = fdopen(fd, "w"))) { warn("cannot write %s", HELLXCB_TAG_AND_MODE); if (fd >= 0) close(fd); return; }
+    fprintf(fp, "[tag: %d] [mode: %s] [windows: %d]", current_desktop + 1, modes[mode], n[current_desktop]);
+    for (int d = 0; d < DESKTOPS; d++) fprintf(fp, " [tag %d win: %d]", d + 1, n[d]);
+    fclose(fp);
 }
 
 /* a destroy notification is received when a window is being closed
@@ -565,7 +500,27 @@ void destroynotify(xcb_generic_event_t *e) {
     xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)e;
     client *c = wintoclient(ev->window);
     if (c) removeclient(c);
+    else if (ev->window == dropdown_win) { dropdown_win = XCB_WINDOW_NONE; dropdown_shown = false; update_current(current); }
     desktopinfo();
+}
+
+/* show or hide the drop-down terminal, start it the first time
+ * it is not a client: tiling, desktop switching and the window counts ignore it */
+void dropdown(const Arg *arg) {
+    if (!dropdown_win) { spawn(arg); return; } /* maprequest() shows it once it maps */
+    if ((dropdown_shown = !dropdown_shown)) {
+        int w = ww * DROPDOWN_WIDTH / 100, h = wh * DROPDOWN_HEIGHT / 100;
+        xcb_border_width(dis, dropdown_win, BORDER_WIDTH);
+        xcb_change_window_attributes(dis, dropdown_win, XCB_CW_BORDER_PIXEL, &win_focus);
+        xcb_move_resize(dis, dropdown_win, (ww - w) / 2, (TOP_PANEL && showpanel) ? PANEL_HEIGHT : 0,
+                        w - 2*BORDER_WIDTH, h - 2*BORDER_WIDTH);
+        xcb_map_window(dis, dropdown_win);
+        xcb_raise_window(dis, dropdown_win);
+        xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, dropdown_win, XCB_CURRENT_TIME);
+    } else {
+        xcb_unmap_window(dis, dropdown_win);
+        update_current(current);
+    }
 }
 
 /* when the mouse enters a window's borders
@@ -576,31 +531,33 @@ void enternotify(xcb_generic_event_t *e) {
     if (!FOLLOW_MOUSE) return;
     DEBUG("xcb: enter notify");
     client *c = wintoclient(ev->event);
-    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !stealFocus) update_current(c, 0);
+    if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !dropdown_shown
+          && !(current && current->istransient)) update_current(c); /* an open dialog keeps the focus */
 }
 
 /* find and focus the client which received
  * the urgent hint in the current desktop */
-void focusurgent() {
+void focusurgent(const Arg *arg) {
+    (void)arg;
     client *c;
     int cd = current_desktop, d = 0;
     for (c=head; c && !c->isurgent; c=c->next);
-    if (c) { update_current(c, 0); return; }
+    if (c) { update_current(c); return; }
     else for (bool f=false; d<DESKTOPS && !f; d++) for (select_desktop(d), c=head; c && !(f=c->isurgent); c=c->next);
     select_desktop(cd);
-    if (c) { change_desktop(&(Arg){.i = --d}); update_current(c, 0); }
+    if (c) { change_desktop(&(Arg){.i = --d}); update_current(c); }
 }
 
 /* get a pixel with the requested color
  * to fill some window area - borders */
-unsigned int getcolor(char* color) {
+unsigned int getcolor(const char *color) {
     xcb_colormap_t map = screen->default_colormap;
     xcb_alloc_color_reply_t *c;
     unsigned int r, g, b, rgb, pixel;
 
     rgb = xcb_get_colorpixel(color);
     r = rgb >> 16; g = rgb >> 8 & 0xFF; b = rgb & 0xFF;
-    c = xcb_alloc_color_reply(dis, xcb_alloc_color(dis, map, r * 257, g * 257, b * 257), NULL);
+    c = xcb_alloc_color_reply(dis, xcb_alloc_color(dis, map, (uint16_t)(r * 257), (uint16_t)(g * 257), (uint16_t)(b * 257)), NULL);
     if (!c)
         errx(EXIT_FAILURE, "error: cannot allocate color '%s'\n", color);
 
@@ -619,7 +576,7 @@ void grabbuttons(client *c) {
                         XCB_WINDOW_NONE, XCB_CURSOR_NONE, XCB_BUTTON_INDEX_ANY, XCB_BUTTON_MASK_ANY);
             else
                 xcb_grab_button(dis, 1, c->win, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC,
-                        XCB_WINDOW_NONE, XCB_CURSOR_NONE, buttons[b].button, buttons[b].mask|modifiers[m]);
+                        XCB_WINDOW_NONE, XCB_CURSOR_NONE, (uint8_t)buttons[b].button, (uint16_t)(buttons[b].mask|modifiers[m]));
 }
 
 /* the wm should listen to key presses */
@@ -628,27 +585,26 @@ void grabkeys(void) {
     unsigned int modifiers[] = { 0, XCB_MOD_MASK_LOCK, numlockmask, numlockmask|XCB_MOD_MASK_LOCK };
     xcb_ungrab_key(dis, XCB_GRAB_ANY, screen->root, XCB_MOD_MASK_ANY);
     for (unsigned int i=0; i<LENGTH(keys); i++) {
-        keycode = xcb_get_keycodes(keys[i].keysym);
+        if (!(keycode = xcb_key_symbols_get_keycode(keysyms, keys[i].keysym))) continue;
         for (unsigned int k=0; keycode[k] != XCB_NO_SYMBOL; k++)
             for (unsigned int m=0; m<LENGTH(modifiers); m++)
-                xcb_grab_key(dis, 1, screen->root, keys[i].mod | modifiers[m], keycode[k], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+                xcb_grab_key(dis, 1, screen->root, (uint16_t)(keys[i].mod | modifiers[m]), keycode[k], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+        free(keycode);
     }
 }
 
 /* arrange windows in a grid */
 void grid(int hh, int cy) {
-    numOfWindows = 0U;
-    workspaces[currentworkspace][1] = 0U;
     int n = 0, cols = 0, cn = 0, rn = 0, i = -1;
     for (client *c = head; c; c=c->next) if (!ISFFT(c)) ++n;
+    if (!n) return; /* only floating windows: nothing to tile, and n/cols below would divide by zero */
     for (cols=0; cols <= n/2; cols++) if (cols*cols >= n) break; /* emulate square root */
     if (n == 5) cols = 2;
 
-    int rows = n/cols, ch = hh - BORDER_WIDTH, cw = (ww - BORDER_WIDTH)/(cols?cols:1);
+    int rows = n/cols, ch = hh - BORDER_WIDTH, cw = (ww - BORDER_WIDTH)/cols;
     for (client *c=head; c; c=c->next) {
-        if (c->isfloating) continue;
-        if (ISFFT(c)) continue; else { ++i; numOfWindows++; workspaces[currentworkspace][1]++; }
-        if (i/rows + 1 > cols - n%cols) rows = n/cols + 1;
+        if (ISFFT(c)) continue; else ++i;
+        if (i/rows >= cols - n%cols) rows = n/cols + 1;
         xcb_move_resize(dis, c->win, cn*cw, cy + rn*ch/rows, cw - BORDER_WIDTH, ch/rows - BORDER_WIDTH);
         if (++rn >= rows) { rn = 0; cn++; }
     }
@@ -657,7 +613,7 @@ void grid(int hh, int cy) {
 /* on the press of a key check to see if there's a binded function to call */
 void keypress(xcb_generic_event_t *e) {
     xcb_key_press_event_t *ev       = (xcb_key_press_event_t *)e;
-    xcb_keysym_t           keysym   = xcb_get_keysym(ev->detail);
+    xcb_keysym_t           keysym   = xcb_key_symbols_get_keysym(keysyms, ev->detail, 0);
     DEBUGP("xcb: keypress: code: %d mod: %d\n", ev->detail, ev->state);
     for (unsigned int i=0; i<LENGTH(keys); i++)
         if (keysym == keys[i].keysym && CLEANMASK(keys[i].mod) == CLEANMASK(ev->state) && keys[i].func)
@@ -666,7 +622,8 @@ void keypress(xcb_generic_event_t *e) {
 
 /* explicitly kill a client - close the highlighted window
  * send a delete message and remove the client */
-void killclient() {
+void killclient(const Arg *arg) {
+    (void)arg;
     if (!current) return;
     xcb_icccm_get_wm_protocols_reply_t reply; unsigned int n = 0; bool got = false;
     if (xcb_icccm_get_wm_protocols_reply(dis,
@@ -678,17 +635,20 @@ void killclient() {
     if (got) deletewindow(current->win);
     else xcb_kill_client(dis, current->win);
     removeclient(current);
-    //wmName[0] = '\0';
-    numOfWindows == 1U ? numOfWindows-- : 0;
-    prevworkspace = currentworkspace;
-    workspaces[currentworkspace][1] == 1U ? workspaces[currentworkspace][1]-- : 0;
-    change_desktop(&(Arg){.i = (currentworkspace == 0U ? 1 : 0)});
-    change_desktop(&(Arg){.i = prevworkspace});
+    desktopinfo();
 }
 
 /* focus the previously focused desktop */
-void last_desktop() {
+void last_desktop(const Arg *arg) {
+    (void)arg;
     change_desktop(&(Arg){.i = previous_desktop});
+}
+
+/* the keyboard map changed (e.g. setxkbmap): refresh it and grab the keys again */
+void mappingnotify(xcb_generic_event_t *e) {
+    xcb_mapping_notify_event_t *ev = (xcb_mapping_notify_event_t*)e;
+    xcb_refresh_keyboard_mapping(keysyms, ev);
+    if (ev->request == XCB_MAPPING_KEYBOARD) grabkeys();
 }
 
 /* a map request is received when a window wants to display itself
@@ -706,11 +666,12 @@ void maprequest(xcb_generic_event_t *e) {
     xcb_window_t                       windows[] = { ev->window }, transient = 0;
     xcb_get_window_attributes_reply_t  *attr[1];
     xcb_icccm_get_wm_class_reply_t     ch;
-    xcb_get_geometry_reply_t           *geometry;
     xcb_get_property_reply_t           *prop_reply;
 
     xcb_get_attributes(windows, attr, 1);
-    if (!attr[0] || attr[0]->override_redirect) return;
+    bool unmanaged = !attr[0] || attr[0]->override_redirect;
+    free(attr[0]);
+    if (unmanaged) return;
     if (wintoclient(ev->window)) return;
     DEBUG("xcb: map request");
 
@@ -718,6 +679,12 @@ void maprequest(xcb_generic_event_t *e) {
     int cd = current_desktop, newdsk = current_desktop;
     if (xcb_icccm_get_wm_class_reply(dis, xcb_icccm_get_wm_class(dis, ev->window), &ch, NULL)) { /* TODO: error handling */
         DEBUGP("class: %s instance: %s\n", ch.class_name, ch.instance_name);
+        if (!dropdown_win && (!strcmp(ch.class_name, DROPDOWN_CLASS) || !strcmp(ch.instance_name, DROPDOWN_CLASS))) {
+            xcb_icccm_get_wm_class_reply_wipe(&ch);
+            dropdown_win = ev->window;
+            dropdown(NULL); /* show it */
+            return;
+        }
         for (unsigned int i=0; i<LENGTH(rules); i++)
             if (strstr(ch.class_name, rules[i].class) || strstr(ch.instance_name, rules[i].class)) {
                 follow = rules[i].follow;
@@ -725,15 +692,7 @@ void maprequest(xcb_generic_event_t *e) {
                 floating = rules[i].floating;
                 break;
             }
-        //snprintf(wmName, sizeof(wmName) - 1, "%s", ch.class_name);
         xcb_icccm_get_wm_class_reply_wipe(&ch);
-    }
-
-    /* might be useful in future */
-    if ((geometry = xcb_get_geometry_reply(dis, xcb_get_geometry(dis, ev->window), NULL))) { /* TODO: error handling */
-        DEBUGP("geom: %ux%u+%d+%d\n", geometry->width, geometry->height,
-                                      geometry->x,     geometry->y);
-        free(geometry);
     }
 
     if (cd != newdsk) select_desktop(newdsk);
@@ -758,21 +717,17 @@ void maprequest(xcb_generic_event_t *e) {
     DEBUGP("transient: %d\n", c->istransient);
     DEBUGP("floating:  %d\n", c->isfloating);
 
-    if (c->isfloating) stealFocus = 1U;
-    else { c->isfloating = 0; stealFocus = 0U; }
-
-    //for (client *c2=head; c2; c2=c2->next) { if (c2) continue; workspaces[currentworkspace][1]++; }
-
     if (cd != newdsk) select_desktop(cd);
-    if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c, 0); }
-    else if (follow) { change_desktop(&(Arg){.i = newdsk}); update_current(c, 0); }
+    if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
+    else if (follow) { change_desktop(&(Arg){.i = newdsk}); update_current(c); }
     grabbuttons(c);
 
     desktopinfo();
 }
 
 /* move the mouse pointer to the rightmost screen edge */
-void mouse_aside() {
+void mouse_aside(const Arg *arg) {
+    (void)arg;
     xcb_query_pointer_reply_t	*reply = NULL;
     int16_t                     rel_x = 0, rel_y = 0;
 
@@ -780,12 +735,13 @@ void mouse_aside() {
                                     xcb_query_pointer(dis, screen->root),
                                     NULL);
     if (reply) {
-        rel_x = ww - reply->root_x;
+        rel_x = (int16_t)(ww - reply->root_x);
         DEBUGP("%s: warp relative pos (%d,%d)\n", __func__, rel_x, rel_y);
         xcb_warp_pointer(dis,
                          XCB_NONE, XCB_NONE,
                          0, 0, 0, 0,
                          rel_x, rel_y);
+        free(reply);
     } else {
         DEBUGP("%s: no mouse query info\n", __func__);
     }
@@ -817,14 +773,16 @@ void mousemotion(const Arg *arg) {
     pointer = xcb_query_pointer_reply(dis, xcb_query_pointer(dis, screen->root), 0);
     if (!pointer) return;
     mx = pointer->root_x; my = pointer->root_y;
+    free(pointer);
 
     grab_reply = xcb_grab_pointer_reply(dis, xcb_grab_pointer(dis, 0, screen->root, BUTTONMASK|XCB_EVENT_MASK_BUTTON_MOTION|XCB_EVENT_MASK_POINTER_MOTION,
             XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_NONE, XCB_CURRENT_TIME), NULL);
-    if (!grab_reply || grab_reply->status != XCB_GRAB_STATUS_SUCCESS) return;
+    bool grabbed = grab_reply && grab_reply->status == XCB_GRAB_STATUS_SUCCESS;
+    free(grab_reply);
+    if (!grabbed) return;
 
     if (current->isfullscrn) setfullscreen(current, False);
-    if (!current->isfloating && moveResizeDetected == 1U) current->isfloating = True;
-    tile(); update_current(current, 0);
+    tile(); update_current(current);
 
     xcb_generic_event_t *e = NULL;
     xcb_motion_notify_event_t *ev = NULL;
@@ -835,18 +793,17 @@ void mousemotion(const Arg *arg) {
         while(!(e = xcb_wait_for_event(dis))) xcb_flush(dis);
         switch (e->response_type & ~0x80) {
             case XCB_CONFIGURE_REQUEST: case XCB_MAP_REQUEST:
-            {
                 events[e->response_type & ~0x80](e);
-                moveResizeDetected = 0U;
-            }
                 break;
             case XCB_MOTION_NOTIFY:
             {
                 ev = (xcb_motion_notify_event_t*)e;
+                /* float on the first real move, so a plain alt+click does not untile the window */
+                if (!current->isfloating) { current->isfloating = True; tile(); }
                 xw = (arg->i == MOVE ? winx : winw) + ev->root_x - mx;
                 yh = (arg->i == MOVE ? winy : winh) + ev->root_y - my;
-                if (arg->i == RESIZE) { xcb_resize(dis, current->win, xw>MINWSZ?xw:winw, yh>MINWSZ?yh:winh); moveResizeDetected = 1U; }
-                else if (arg->i == MOVE) { xcb_move(dis, current->win, xw, yh); moveResizeDetected = 1U; }
+                if (arg->i == RESIZE) xcb_resize(dis, current->win, xw>MINWSZ?xw:winw, yh>MINWSZ?yh:winh);
+                else xcb_move(dis, current->win, xw, yh);
                 xcb_flush(dis);
             }
                 break;
@@ -854,27 +811,22 @@ void mousemotion(const Arg *arg) {
             case XCB_KEY_RELEASE:
             case XCB_BUTTON_PRESS:
             case XCB_BUTTON_RELEASE:
-            {
                 ungrab = true;
-                moveResizeDetected = 0U;
-            }
                 break;
             default: break;
         }
     } while(!ungrab && current);
+    free(e);
     DEBUG("xcb: ungrab");
     xcb_ungrab_pointer(dis, XCB_CURRENT_TIME);
 }
 
-/* each window should cover all the available screen space */
-/*void monocle(int hh, int cy) {
-    for (client *c=head; c; c=c->next) if (!ISFFT(c)) xcb_move_resize(dis, c->win, 0, cy, ww, hh);
-}*/
-
 /* move the current client, to current->next
  * and current->next to current client's position */
-void move_down() {
+void move_down(const Arg *arg) {
+    (void)arg;
     /* p is previous, c is current, n is next, if current is head n is last */
+    if (!current) return;
     client *p = NULL, *n = (current->next) ? current->next:head;
     if (!(p = prev_client(current))) return;
     /*
@@ -910,7 +862,8 @@ void move_down() {
 
 /* move the current client, to the previous from current and
  * the previous from  current to current client's position */
-void move_up() {
+void move_up(const Arg *arg) {
+    (void)arg;
     client *pp = NULL, *p;
     /* p is previous from current or last if current is head */
     if (!(p = prev_client(current))) return;
@@ -949,24 +902,26 @@ void move_up() {
 
 /* cyclic focus the next window
  * if the window is the last on stack, focus head */
-void next_win() {
+void next_win(const Arg *arg) {
+    (void)arg;
     if (!current || !head->next) return;
-    update_current(current->next ? current->next:head, 0);
+    update_current(current->next ? current->next:head);
 }
 
 /* get the previous client from the given
  * if no such client, return NULL */
 client* prev_client(client *c) {
-    if (!c || !head->next) return NULL;
+    if (!c || !head || !head->next) return NULL;
     client *p; for (p=head; p->next && p->next != c; p=p->next);
     return p;
 }
 
 /* cyclic focus the previous window
  * if the window is the head, focus the last stack window */
-void prev_win() {
+void prev_win(const Arg *arg) {
+    (void)arg;
     if (!current || !head->next) return;
-    update_current(prev_client(prevfocus = current), 0);
+    update_current(prev_client(prevfocus = current));
 }
 
 /* property notify is called when one of the window's properties
@@ -1007,7 +962,7 @@ void removeclient(client *c) {
         for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
     *p = c->next;
     if (c == prevfocus) prevfocus = prev_client(current);
-    if (c == current || !head->next) update_current(prevfocus, 0);
+    if (c == current || !head || !head->next) update_current(prevfocus);
     free(c); c = NULL;
     if (cd == nd -1) tile(); else select_desktop(cd);
 }
@@ -1016,7 +971,7 @@ void removeclient(client *c) {
  * the size of a window can't be less than MINWSZ
  */
 void resize_master(const Arg *arg) {
-    int msz = (mode == BSTACK ? wh:ww) * MASTER_SIZE + master_size + arg->i;
+    int msz = (int)((mode == BSTACK ? wh:ww) * MASTER_SIZE) + master_size + arg->i;
     if (msz < MINWSZ || (mode == BSTACK ? wh:ww) - msz < MINWSZ) return;
     master_size += arg->i;
     tile();
@@ -1035,9 +990,10 @@ void rotate(const Arg *arg) {
 
 /* jump and focus the next or previous desktop that has clients */
 void rotate_filled(const Arg *arg) {
-    int n = arg->i;
-    while (n < DESKTOPS && !desktops[(DESKTOPS + current_desktop + n) % DESKTOPS].head) (n += arg->i);
-    change_desktop(&(Arg){.i = (DESKTOPS + current_desktop + n) % DESKTOPS});
+    for (int k = 1; k < DESKTOPS; k++) {
+        int d = (DESKTOPS + current_desktop + k*arg->i) % DESKTOPS;
+        if (desktops[d].head) { change_desktop(&(Arg){.i = d}); return; }
+    }
 }
 
 /* main event loop - on receival of an event call the appropriate event handler */
@@ -1068,10 +1024,6 @@ void save_desktop(int i) {
 
 /* set the specified desktop's properties */
 void select_desktop(int i) {
-    static FILE *fp = NULL;
-    char str[256] = {'\0'};
-    char *strPtr = str;
-    static const char *styles_arr[] = { "tile", "bstack", "grid"};
     if (i < 0 || i >= DESKTOPS) return;
     save_desktop(current_desktop);
     master_size     = desktops[i].master_size;
@@ -1082,11 +1034,6 @@ void select_desktop(int i) {
     showpanel       = desktops[i].showpanel;
     prevfocus       = desktops[i].prevfocus;
     current_desktop = i;
-    for (unsigned int x = 0; x < DESKTOPS; x++) strPtr += snprintf(strPtr, 256, "[tag %u win: %u] ", x + 1, workspaces[x][1]);
-    *(--strPtr) = '\0';
-    if (!(fp = fopen(HELLXCB_TAG_AND_MODE, "w"))) { puts("Cannot open a text file to output some data."); return; }
-    fprintf(fp, "[tag: %d] [mode: %s] [windows: %u] %s", i + 1, styles_arr[mode], numOfWindows, str);
-    (void)fclose(fp);
 }
 
 /* set or unset fullscreen state of client */
@@ -1095,8 +1042,8 @@ void setfullscreen(client *c, bool fullscrn) {
     long data[] = { fullscrn ? netatoms[NET_FULLSCREEN] : XCB_NONE };
     if (fullscrn != c->isfullscrn) xcb_change_property(dis, XCB_PROP_MODE_REPLACE, c->win, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, fullscrn, data);
     if ((c->isfullscrn = fullscrn)) xcb_move_resize(dis, c->win, 0, 0, ww, wh + PANEL_HEIGHT);
-    xcb_border_width(dis, c->win, (!head->next || c->isfullscrn || BORDER_WIDTH));
-    update_current(c, 0);
+    xcb_border_width(dis, c->win, (!head->next || c->isfullscrn) ? 0 : BORDER_WIDTH);
+    update_current(c);
 }
 
 /* get numlock modifier using xcb */
@@ -1112,7 +1059,7 @@ int setup_keyboard(void)
     modmap = xcb_get_modifier_mapping_keycodes(reply);
     if (!modmap) return -1;
 
-    numlock = xcb_get_keycodes(XK_Num_Lock);
+    if (!(numlock = xcb_key_symbols_get_keycode(keysyms, XK_Num_Lock))) { free(reply); return 0; }
     for (unsigned int i=0; i<8; i++)
        for (unsigned int j=0; j<reply->keycodes_per_modifier; j++) {
            xcb_keycode_t keycode = modmap[i * reply->keycodes_per_modifier + j];
@@ -1125,6 +1072,7 @@ int setup_keyboard(void)
                }
        }
 
+    free(numlock); free(reply);
     return 0;
 }
 
@@ -1134,24 +1082,20 @@ int setup_keyboard(void)
  * and propagate the suported net atoms
  */
 int setup(int default_screen) {
-    sigchld();
+    if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) err(EXIT_FAILURE, "cannot ignore SIGCHLD"); /* children are reaped by the kernel */
     screen = xcb_screen_of_display(dis, default_screen);
     if (!screen) err(EXIT_FAILURE, "error: cannot aquire screen\n");
 
     ww = screen->width_in_pixels;
     wh = screen->height_in_pixels - PANEL_HEIGHT;
-    for (unsigned int i=0; i<DESKTOPS; i++) save_desktop(i);
+    for (int i=0; i<DESKTOPS; i++) save_desktop(i);
 
-    pthread_t th;
-    pthread_create(&th, NULL, clickToChangeColour, NULL);
-    pthread_detach(th);
-
-    char *colours[] = {(char *)FOCUS_COLOUR1, (char *)FOCUS_COLOUR2, (char *)FOCUS_COLOUR3};
-    for (unsigned short int z = 0; z < 3; z++) { randomRGB[z] = getcolor(colours[z]); randomRGBclick[z] = getcolor(colours[z]); }
+    const char *colours[] = { FOCUS_COLOUR1, FOCUS_COLOUR2, FOCUS_COLOUR3 };
+    for (unsigned short int z = 0; z < 3; z++) { randomRGB[z] = getcolor(colours[z]); }
     win_unfocus = getcolor(UNFOCUS);
 
     /* setup keyboard */
-    if (setup_keyboard() == -1)
+    if (!(keysyms = xcb_key_symbols_alloc(dis)) || setup_keyboard() == -1)
         err(EXIT_FAILURE, "error: failed to setup keyboard\n");
 
     /* set up atoms for dialog/notification windows */
@@ -1174,6 +1118,7 @@ int setup(int default_screen) {
     events[XCB_ENTER_NOTIFY]        = enternotify;
     events[XCB_KEY_PRESS]           = keypress;
     events[XCB_MAP_REQUEST]         = maprequest;
+    events[XCB_MAPPING_NOTIFY]      = mappingnotify;
     events[XCB_PROPERTY_NOTIFY]     = propertynotify;
     events[XCB_UNMAP_NOTIFY]        = unmapnotify;
 
@@ -1181,32 +1126,25 @@ int setup(int default_screen) {
     return 0;
 }
 
-void sigchld() {
-    if (signal(SIGCHLD, sigchld) == SIG_ERR)
-        err(EXIT_FAILURE, "cannot install SIGCHLD handler");
-    while(0 < waitpid(-1, NULL, WNOHANG));
-}
-
 /* execute a command */
 void spawn(const Arg *arg) {
     if (fork()) return;
-    if (dis) close(screen->root);
+    if (dis) close(xcb_get_file_descriptor(dis));
     setsid();
+    signal(SIGCHLD, SIG_DFL); /* SIG_IGN would be inherited across exec */
     execvp((char*)arg->com[0], (char**)arg->com);
     fprintf(stderr, "error: execvp %s", (char *)arg->com[0]);
     perror(" failed"); /* also prints the err msg */
-    exit(EXIT_SUCCESS);
+    _exit(EXIT_FAILURE);
 }
 
 /* arrange windows in normal or bottom stack tile */
 void stack(int hh, int cy) {
-    numOfWindows = 1U;
-    workspaces[currentworkspace][1] = 1U;
     client *c = NULL, *t = NULL; bool b = mode == BSTACK;
-    int n = 0, d = 0, z = b ? ww:hh, ma = (mode == BSTACK ? wh:ww) * MASTER_SIZE + master_size;
+    int n = 0, d = 0, z = b ? ww:hh, ma = (int)((mode == BSTACK ? wh:ww) * MASTER_SIZE) + master_size;
 
     /* count stack windows and grab first non-floating, non-fullscreen window */
-    for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) { ++n; numOfWindows++; workspaces[currentworkspace][1]++; } else c = t; }
+    for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) ++n; else c = t; }
 
     /* if there is only one window, it should cover the available screen space
      * if there is only one stack window (n == 1) then we don't care about growth
@@ -1260,30 +1198,32 @@ void stack(int hh, int cy) {
  * if current is not head, then head
  * is behind us, so move_up until we
  * are the head */
-void swap_master() {
+void swap_master(const Arg *arg) {
+    (void)arg;
     if (!current || !head->next) return;
-    if (current == head) move_down();
-    else while (current != head) move_up();
-    update_current(head, 0);
+    if (current == head) move_down(NULL);
+    else while (current != head) move_up(NULL);
+    update_current(head);
 }
 
 /* switch the tiling mode and reset all floating windows */
 void switch_mode(const Arg *arg) {
     if (mode == arg->i) for (client *c=head; c; c=c->next) c->isfloating = False;
     mode = arg->i;
-    tile(); update_current(current, 0);
+    tile(); update_current(current);
     desktopinfo();
 }
 
 /* tile all windows of current desktop - call the handler tiling function */
 void tile(void) {
-    if (!head) return; /* nothing to arange */
+    if (!head || mode == FLOAT) return; /* nothing to arrange */
     layout[head->next ? mode : TILE](wh + (showpanel ? 0:PANEL_HEIGHT),
                                 (TOP_PANEL && showpanel ? PANEL_HEIGHT:0));
 }
 
 /* toggle visibility state of the panel */
-void togglepanel() {
+void togglepanel(const Arg *arg) {
+    (void)arg;
     showpanel = !showpanel;
     tile();
 }
@@ -1311,9 +1251,8 @@ void unmapnotify(xcb_generic_event_t *e) {
  *
  * a window should have borders in any case, except if
  *  - the window is the only window on screen
- *  - the window is fullscreen
- *  - the mode is MONOCLE and the window is not floating or transient */
-void update_current(client *c, unsigned short int onClickColourChange) {
+ *  - the window is fullscreen */
+void update_current(client *c) {
     if (!head) {
         xcb_delete_property(dis, screen->root, netatoms[NET_ACTIVE]);
         current = prevfocus = NULL;
@@ -1324,26 +1263,31 @@ void update_current(client *c, unsigned short int onClickColourChange) {
     /* num of n:all fl:fullscreen ft:floating/transient windows */
     int n = 0, fl = 0, ft = 0;
     for (c = head; c; c = c->next, ++n) if (ISFFT(c)) { fl++; if (!c->isfullscrn) ft++; }
+    const int count = n;
     xcb_window_t w[n];
-    static unsigned int rgb = 0U, rgb2 = 0U;
+    static unsigned int rgb = 0U;
     if (rgb >= 3U) { rgb = 0U; }
-    if (rgb2 >= 3U) { rgb2 = 0U; }
-    win_focus = (onClickColourChange == 0 ? randomRGB[rgb] : randomRGBclick[rgb2]);
-    w[(current->isfloating||current->istransient)?0:ft] = current->win;
+    win_focus = randomRGB[rgb];
+    /* w[] is the stacking order, w[0] on top; see the comment above */
+    w[(current->isfloating||current->istransient) && !current->isfullscrn ? 0:ft] = current->win;
     for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
         xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
-        xcb_border_width(dis, c->win, (!head->next || c->isfullscrn || BORDER_WIDTH));
-        //if (CLICK_TO_FOCUS) xcb_grab_button(dis, 1, c->win, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
-        //   screen->root, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_BUTTON_MASK_ANY);
+        xcb_border_width(dis, c->win, (!head->next || c->isfullscrn) ? 0 : BORDER_WIDTH);
         if (c != current) w[c->isfullscrn ? --fl : ISFFT(c) ? --ft : --n] = c->win;
     }
-    onClickColourChange == 0 ? rgb++ : rgb2++;
+    rgb++;
     /* restack */
-    for (ft = 0; ft <= n; ++ft) xcb_raise_window(dis, w[n-ft]);
+    /* top down, each window right below the one before: no window ever passes over
+     * the current one, so the pointer gets no enter event that would move the focus */
+    xcb_raise_window(dis, w[0]);
+    for (int i = 1; i < count; i++) {
+        uint32_t v[2] = { w[i-1], XCB_STACK_MODE_BELOW };
+        xcb_configure_window(dis, w[i], XCB_CONFIG_WINDOW_SIBLING|XCB_CONFIG_WINDOW_STACK_MODE, v);
+    }
 
     xcb_change_property(dis, XCB_PROP_MODE_REPLACE, screen->root, netatoms[NET_ACTIVE], XCB_ATOM_WINDOW, 32, 1, &current->win);
-    xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, current->win, XCB_CURRENT_TIME);
-    //if (CLICK_TO_FOCUS) xcb_ungrab_button(dis, XCB_BUTTON_INDEX_1, XCB_NONE, current->win);
+    if (dropdown_shown) xcb_raise_window(dis, dropdown_win); /* the drop-down terminal stays on top with the focus */
+    xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, dropdown_shown ? dropdown_win : current->win, XCB_CURRENT_TIME);
     tile();
 }
 
@@ -1368,7 +1312,7 @@ int main(int argc, char *argv[]) {
     if (xcb_connection_has_error((dis = xcb_connect(NULL, &default_screen))))
         errx(EXIT_FAILURE, "error: cannot open display\n");
     if (setup(default_screen) != -1) {
-      desktopinfo(); /* zero out every desktop on (re)start */
+      desktopinfo();
       run();
     }
     cleanup();
