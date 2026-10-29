@@ -57,7 +57,6 @@ MA 02110-1301, USA.
 
 static unsigned int workspaces[10][2] = { {0U, 0U} }; /* show how many windows are opened in all tags/workspaces */
 static unsigned int currentworkspace = 0U; /* to count how many windows are opened in all tags/workspaces */
-static unsigned int moveResizeDetected = 0U; /* Don't flicker/freeze when using the manual resizing/moving a window, this variable is used as flag to set wheter it will steal the focus from another window or not */
 static unsigned int numOfWindows = 0U; /* count how many windows are in the currently working tag/workspace */
 static unsigned int stealFocus = 0U; /* don't steal focus from busy programs/uplod file dialogs */
 static unsigned int prevworkspace = 1U; /* used to count the number of opened windows and workaround the problem when there is only 1 window as it was showing 0 in the past */
@@ -812,7 +811,6 @@ void mousemotion(const Arg *arg) {
     if (!grab_reply || grab_reply->status != XCB_GRAB_STATUS_SUCCESS) return;
 
     if (current->isfullscrn) setfullscreen(current, False);
-    if (!current->isfloating && moveResizeDetected == 1U) current->isfloating = True;
     tile(); update_current(current);
 
     xcb_generic_event_t *e = NULL;
@@ -824,18 +822,17 @@ void mousemotion(const Arg *arg) {
         while(!(e = xcb_wait_for_event(dis))) xcb_flush(dis);
         switch (e->response_type & ~0x80) {
             case XCB_CONFIGURE_REQUEST: case XCB_MAP_REQUEST:
-            {
                 events[e->response_type & ~0x80](e);
-                moveResizeDetected = 0U;
-            }
                 break;
             case XCB_MOTION_NOTIFY:
             {
                 ev = (xcb_motion_notify_event_t*)e;
+                /* float on the first real move, so a plain alt+click does not untile the window */
+                if (!current->isfloating) { current->isfloating = True; tile(); }
                 xw = (arg->i == MOVE ? winx : winw) + ev->root_x - mx;
                 yh = (arg->i == MOVE ? winy : winh) + ev->root_y - my;
-                if (arg->i == RESIZE) { xcb_resize(dis, current->win, xw>MINWSZ?xw:winw, yh>MINWSZ?yh:winh); moveResizeDetected = 1U; }
-                else if (arg->i == MOVE) { xcb_move(dis, current->win, xw, yh); moveResizeDetected = 1U; }
+                if (arg->i == RESIZE) xcb_resize(dis, current->win, xw>MINWSZ?xw:winw, yh>MINWSZ?yh:winh);
+                else xcb_move(dis, current->win, xw, yh);
                 xcb_flush(dis);
             }
                 break;
@@ -843,10 +840,7 @@ void mousemotion(const Arg *arg) {
             case XCB_KEY_RELEASE:
             case XCB_BUTTON_PRESS:
             case XCB_BUTTON_RELEASE:
-            {
                 ungrab = true;
-                moveResizeDetected = 0U;
-            }
                 break;
             default: break;
         }
