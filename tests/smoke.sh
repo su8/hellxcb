@@ -59,8 +59,10 @@ xdotool key alt+shift+f
 xterm & P1=$!; sleep 1.5
 W=$(xdotool search --onlyvisible --class XTerm | head -1)
 [ "$(geom "$W" WIDTH)" -lt 700 ]; expect "floating mode keeps the size a window asks for" $? 0
+xdotool mousemove --window "$W" 20 20 keydown alt mousedown 1 mousemove_relative 150 40 mouseup 1 keyup alt; sleep 0.5
+xdotool key alt+shift+t; sleep 0.5
+expect "one Alt+Shift+T tiles windows dragged in floating mode" "$(geom "$W" X)" 0
 kill $P1; sleep 0.5
-xdotool key alt+shift+t
 
 xterm & P1=$!; xterm & P2=$!; sleep 1.5
 count() { grep -o '\[tag 1 win: [0-9]*\]' /tmp/hellxcb.txt; }

@@ -798,8 +798,9 @@ void mousemotion(const Arg *arg) {
             case XCB_MOTION_NOTIFY:
             {
                 ev = (xcb_motion_notify_event_t*)e;
-                /* float on the first real move, so a plain alt+click does not untile the window */
-                if (!current->isfloating) { current->isfloating = True; tile(); }
+                /* float on the first real move, so a plain alt+click does not untile the window;
+                 * not in FLOAT mode, so the next tiling mode tiles the window again */
+                if (!current->isfloating && mode != FLOAT) { current->isfloating = True; tile(); }
                 xw = (arg->i == MOVE ? winx : winw) + ev->root_x - mx;
                 yh = (arg->i == MOVE ? winy : winh) + ev->root_y - my;
                 if (arg->i == RESIZE) xcb_resize(dis, current->win, xw>MINWSZ?xw:winw, yh>MINWSZ?yh:winh);
