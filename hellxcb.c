@@ -60,6 +60,7 @@ static const char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
 static const char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
 
 #define LENGTH(x) (sizeof(x)/sizeof(*x))
+#define MIN(a,b)  ((a) < (b) ? (a) : (b))
 #define CLEANMASK(mask) (mask & ~(numlockmask | XCB_MOD_MASK_LOCK))
 #define BUTTONMASK      XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_BUTTON_RELEASE
 #define ISFFT(c)        (c->isfullscrn || c->isfloating || c->istransient)
@@ -443,8 +444,8 @@ void configurerequest(xcb_generic_event_t *e) {
         unsigned int i = 0;
         if (ev->value_mask & XCB_CONFIG_WINDOW_X)              v[i++] = (uint32_t)ev->x;
         if (ev->value_mask & XCB_CONFIG_WINDOW_Y)              v[i++] = (uint32_t)(ev->y + ((showpanel && TOP_PANEL) ? PANEL_HEIGHT : 0));
-        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (uint32_t)((ev->width  > ww - 2*BORDER_WIDTH) ? ww - 2*BORDER_WIDTH : ev->width);
-        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (uint32_t)((ev->height > wh - 2*BORDER_WIDTH) ? wh - 2*BORDER_WIDTH : ev->height);
+        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (uint32_t)MIN(ev->width,  ww - 2*BORDER_WIDTH);
+        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (uint32_t)MIN(ev->height, wh - 2*BORDER_WIDTH);
         if (ev->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)   v[i++] = ev->border_width;
         if (ev->value_mask & XCB_CONFIG_WINDOW_SIBLING)        v[i++] = ev->sibling;
         if (ev->value_mask & XCB_CONFIG_WINDOW_STACK_MODE)     v[i++] = ev->stack_mode;
@@ -602,9 +603,8 @@ void grid(int hh, int cy) {
 
     int rows = n/cols, ch = hh - BORDER_WIDTH, cw = (ww - BORDER_WIDTH)/cols;
     for (client *c=head; c; c=c->next) {
-        if (c->isfloating) continue;
         if (ISFFT(c)) continue; else ++i;
-        if (i/rows + 1 > cols - n%cols) rows = n/cols + 1;
+        if (i/rows >= cols - n%cols) rows = n/cols + 1;
         xcb_move_resize(dis, c->win, cn*cw, cy + rn*ch/rows, cw - BORDER_WIDTH, ch/rows - BORDER_WIDTH);
         if (++rn >= rows) { rn = 0; cn++; }
     }
