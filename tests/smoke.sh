@@ -38,6 +38,8 @@ check "grid mode with only floating windows"
 W=$(xdotool search --class Gimp | head -1)
 xdotool windowmove "$W" 100 300; sleep 0.5
 expect "floating window keeps the y it asks for" "$(geom "$W" Y)" 318
+xdotool windowsize "$W" 2000 2000; sleep 0.5
+expect "a window asking to be bigger than the screen fits on it" "$(geom "$W" WIDTH)" 796
 kill $P1 $P2; sleep 0.5
 xdotool key alt+shift+t
 xdotool key alt+shift+y; sleep 0.3

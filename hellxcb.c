@@ -443,8 +443,8 @@ void configurerequest(xcb_generic_event_t *e) {
         unsigned int i = 0;
         if (ev->value_mask & XCB_CONFIG_WINDOW_X)              v[i++] = ev->x;
         if (ev->value_mask & XCB_CONFIG_WINDOW_Y)              v[i++] = ev->y + ((showpanel && TOP_PANEL) ? PANEL_HEIGHT : 0);
-        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (ev->width  < ww - BORDER_WIDTH) ? ev->width  : ww + BORDER_WIDTH;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (ev->height < wh - BORDER_WIDTH) ? ev->height : wh + BORDER_WIDTH;
+        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (ev->width  > ww - 2*BORDER_WIDTH) ? ww - 2*BORDER_WIDTH : ev->width;
+        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (ev->height > wh - 2*BORDER_WIDTH) ? wh - 2*BORDER_WIDTH : ev->height;
         if (ev->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)   v[i++] = ev->border_width;
         if (ev->value_mask & XCB_CONFIG_WINDOW_SIBLING)        v[i++] = ev->sibling;
         if (ev->value_mask & XCB_CONFIG_WINDOW_STACK_MODE)     v[i++] = ev->stack_mode;
