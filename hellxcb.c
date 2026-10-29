@@ -134,7 +134,7 @@ typedef struct client {
  */
 typedef struct {
     int mode, growth;
-    float master_size;
+    int master_size;
     client *head, *current, *prevfocus;
     bool showpanel;
 } desktop;
@@ -971,7 +971,7 @@ void removeclient(client *c) {
  * the size of a window can't be less than MINWSZ
  */
 void resize_master(const Arg *arg) {
-    int msz = (mode == BSTACK ? wh:ww) * MASTER_SIZE + master_size + arg->i;
+    int msz = (int)((mode == BSTACK ? wh:ww) * MASTER_SIZE) + master_size + arg->i;
     if (msz < MINWSZ || (mode == BSTACK ? wh:ww) - msz < MINWSZ) return;
     master_size += arg->i;
     tile();
@@ -1141,7 +1141,7 @@ void spawn(const Arg *arg) {
 /* arrange windows in normal or bottom stack tile */
 void stack(int hh, int cy) {
     client *c = NULL, *t = NULL; bool b = mode == BSTACK;
-    int n = 0, d = 0, z = b ? ww:hh, ma = (mode == BSTACK ? wh:ww) * MASTER_SIZE + master_size;
+    int n = 0, d = 0, z = b ? ww:hh, ma = (int)((mode == BSTACK ? wh:ww) * MASTER_SIZE) + master_size;
 
     /* count stack windows and grab first non-floating, non-fullscreen window */
     for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) ++n; else c = t; }
