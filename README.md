@@ -33,7 +33,7 @@ Alt+Shift+f switches the desktop to floating mode: windows keep the place and si
 
 For shadows, fading and window animations, run [picom](https://github.com/yshui/picom) (v12 or newer for animations) next to hellxcb. Start it in `.xinitrc` with `picom -b` right after `exec hellxcb`. Example `~/.config/picom/picom.conf`:
 
-```
+```python
 backend = "glx";
 vsync = true;
 shadow = true;
