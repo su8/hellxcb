@@ -23,7 +23,7 @@ Build and install.
 
 To have mouse cursor, open up `.xinitrc` and append somewhere before the `case` label the following `xsetroot -cursor_name left_ptr`
 
-The statusline in the picture above is made of https://github.com/su8/doomy . You can use `sed` to make a named tag/workspace from `/tmp/hellxcb.txt` , just use `cat /tmp/hellxcb.txt | sed -E 's/tag: 1/tag: web/g; s/tag: 2/tag: dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g; s/tag 1/web/g; s/tag 2/dev/g; s/tag 3/misc/g; s/tag 4/float/g;'` and redirect it `/tmp/doomy.txt` if you use https://github.com/su8/doomy
+The statusline in the picture above is made of https://github.com/su8/doomy . You can use `sed` to make a named tag/workspace from `/tmp/hellxcb.txt` , just use `cat /tmp/hellxcb.txt | sed -E 's/tag: 1/tag: web/g; s/tag: 2/tag: dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g; s/tag 1/web/g; s/tag 2/dev/g; s/tag 3/misc/g; s/tag 4/float/g;' > `/tmp/doomy.txt` if you use https://github.com/su8/doomy
 
 Super+z shows and hides a drop-down terminal; the first press starts it. Set its command (`dropdowncmd`), `DROPDOWN_WIDTH` and `DROPDOWN_HEIGHT` (percent of the screen) in `config.h`. The window is found by its class or instance name `hellxcb-dropdown`, so other terminals need their own flag for it, e.g. `st -c hellxcb-dropdown`, `urxvt -name hellxcb-dropdown` or `alacritty --class hellxcb-dropdown`.
 
@@ -31,7 +31,7 @@ Alt+Shift+f switches the desktop to floating mode: windows keep the place and si
 
 `make check` runs a smoke test on a virtual X server. It needs `Xvfb`, `xdotool`, `xterm` and `xwininfo`.
 
-For shadows, fading and window animations, run [picom](https://github.com/yshui/picom) (v12 or newer for animations) next to hellxcb. Start it in `.xinitrc` with `picom -b` before `exec hellxcb`. Example `~/.config/picom/picom.conf`:
+For shadows, fading and window animations, run [picom](https://github.com/yshui/picom) (v12 or newer for animations) next to hellxcb. Start it in `.xinitrc` with `picom -b` right after `exec hellxcb`. Example `~/.config/picom/picom.conf`:
 
 ```
 backend = "glx";
