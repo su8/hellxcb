@@ -35,6 +35,9 @@ MA 02110-1301, USA.
 #define FOLLOW_WINDOW   False     /* Follow the window when moved to a different desktop */
 #define CLICK_TO_FOCUS  False     /* Focus an unfocused window when clicked */
 #define BORDER_WIDTH    2         /* window border width */
+#define GAPS_INNER      8         /* gap in pixels between tiled windows, 0 for none */
+#define GAPS_OUTER      0         /* extra gap at the screen edges, added to GAPS_INNER, may be negative */
+#define SMART_GAPS      True      /* True: no gaps when only one window is tiled, INVERSE_OUTER: outer gaps only then, False: always gaps */
 #define FOCUS_COLOUR1   "#f0c674" /* focused window border colour1 */
 #define FOCUS_COLOUR2   "#1793D1" /* focused window border colour2 */
 #define FOCUS_COLOUR3   "#b294bb" /* focused window border colour3 */
