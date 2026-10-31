@@ -61,9 +61,9 @@ rules = (
 Other presets: `fly-in`/`fly-out`, and `slide-in`/`slide-out` with `direction = "left"`, `"right"`, `"up"` or `"down"`. Wobbly windows need compiz, which is a window manager itself and cannot run next to hellxcb.
 
 The packages needed for example would be
-`libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` [ `pkg-config` or `pkgconfig`or `pkgconf` ]
+`libxcb` `libxcb-shape` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` [ `pkg-config` or `pkgconfig`or `pkgconf` ]
 
-The packages in Debian are: `libxcb-randr0` `libxcb-randr0-dev` `libxcb-ewmh` `libxcb-ewmh2` `xorg-dev` `xserver-xorg-dev` `libxcb-icccm4` `libxcb-icccm4-dev` `gcc` `make` `xorg` `pkg-config` `git` `libxcb-keysyms1` `libxcb-keysyms1-dev` `libxcb-util-wm` `libxcb-util-dev` `xcb-util` `libxcb1-deb` `libxcb-dev`
+The packages in Debian are: `libxcb-shape0` `libxcb-shape0-dev` `libxcb-randr0` `libxcb-randr0-dev` `libxcb-ewmh` `libxcb-ewmh2` `xorg-dev` `xserver-xorg-dev` `libxcb-icccm4` `libxcb-icccm4-dev` `gcc` `make` `xorg` `pkg-config` `git` `libxcb-keysyms1` `libxcb-keysyms1-dev` `libxcb-util-wm` `libxcb-util-dev` `xcb-util` `libxcb1-deb` `libxcb-dev`
 
 For FreeBSD the packages are `gcc` `xorg` `gmake` `chromium` `git` `gawk` `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysyms` `pkgconf`
 
