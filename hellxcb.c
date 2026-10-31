@@ -30,6 +30,7 @@ MA 02110-1301, USA.
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
+#include <xcb/shape.h>
 
 /* set this to 1 to enable debug prints */
 #if 0
@@ -162,6 +163,7 @@ static void cleanup(void);
 static void client_to_desktop(const Arg *arg);
 static void clientmessage(xcb_generic_event_t *e);
 static void configurerequest(xcb_generic_event_t *e);
+static void configurenotify(xcb_generic_event_t *e);
 static void cycle_mode(const Arg *arg);
 static void deletewindow(xcb_window_t w);
 static void desktopinfo(void);
@@ -460,6 +462,39 @@ void configurerequest(xcb_generic_event_t *e) {
         xcb_configure_window(dis, ev->window, ev->value_mask, v);
     }
     tile();
+}
+
+/* cut the window, border included, to a rectangle with CORNER_RADIUS rounded corners.
+ * a window that fills the screen (fullscreen, or alone without gaps) stays square */
+static void round_corners(xcb_window_t win, int w, int h, int bw) {
+    int W = w + 2*bw, H = h + 2*bw, r = MIN(CORNER_RADIUS, MIN(W, H)/2), d = 2*r;
+    if (r <= 0 || (W >= ww && H >= wh)) {
+        xcb_shape_mask(dis, XCB_SHAPE_SO_SET, XCB_SHAPE_SK_BOUNDING, win, 0, 0, XCB_PIXMAP_NONE);
+        return;
+    }
+    xcb_pixmap_t pm = xcb_generate_id(dis);
+    xcb_gcontext_t gc = xcb_generate_id(dis);
+    uint32_t px = 0;
+    xcb_create_pixmap(dis, 1, pm, win, (uint16_t)W, (uint16_t)H);
+    xcb_create_gc(dis, gc, pm, XCB_GC_FOREGROUND, &px);
+    xcb_rectangle_t all = { 0, 0, (uint16_t)W, (uint16_t)H };
+    xcb_poly_fill_rectangle(dis, pm, gc, 1, &all);
+    px = 1; xcb_change_gc(dis, gc, XCB_GC_FOREGROUND, &px);
+    xcb_rectangle_t body[] = { { (int16_t)r, 0, (uint16_t)(W - d), (uint16_t)H }, { 0, (int16_t)r, (uint16_t)W, (uint16_t)(H - d) } };
+    xcb_arc_t corner[] = { { 0, 0, (uint16_t)d, (uint16_t)d, 0, 360 << 6 }, { (int16_t)(W - d), 0, (uint16_t)d, (uint16_t)d, 0, 360 << 6 },
+                           { 0, (int16_t)(H - d), (uint16_t)d, (uint16_t)d, 0, 360 << 6 }, { (int16_t)(W - d), (int16_t)(H - d), (uint16_t)d, (uint16_t)d, 0, 360 << 6 } };
+    xcb_poly_fill_rectangle(dis, pm, gc, 2, body);
+    xcb_poly_fill_arc(dis, pm, gc, 4, corner);
+    xcb_shape_mask(dis, XCB_SHAPE_SO_SET, XCB_SHAPE_SK_BOUNDING, win, (int16_t)-bw, (int16_t)-bw, pm);
+    xcb_free_gc(dis, gc);
+    xcb_free_pixmap(dis, pm);
+}
+
+/* a window changed size or border: round its corners again */
+void configurenotify(xcb_generic_event_t *e) {
+    xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)e;
+    if (ev->window == dropdown_win || wintoclient(ev->window))
+        round_corners(ev->window, ev->width, ev->height, ev->border_width);
 }
 
 /* cycle thru all of the tiling modes and reset all floating windows */
@@ -1123,6 +1158,7 @@ int setup(int default_screen) {
     events[XCB_BUTTON_PRESS]        = buttonpress;
     events[XCB_CLIENT_MESSAGE]      = clientmessage;
     events[XCB_CONFIGURE_REQUEST]   = configurerequest;
+    events[XCB_CONFIGURE_NOTIFY]    = configurenotify;
     events[XCB_DESTROY_NOTIFY]      = destroynotify;
     events[XCB_ENTER_NOTIFY]        = enternotify;
     events[XCB_KEY_PRESS]           = keypress;
