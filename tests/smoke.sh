@@ -64,6 +64,16 @@ xdotool key alt+shift+t; sleep 0.5
 expect "one Alt+Shift+T tiles windows dragged in floating mode" "$(geom "$W" X)" 0
 kill $P1; sleep 0.5
 
+xterm & P1=$!; sleep 1.5
+W=$(xdotool search --onlyvisible --class XTerm | head -1)
+expect "smart gaps: a lone tiled window gets no gap" "$(geom "$W" X)" 0
+xterm & P2=$!; sleep 1.5
+expect "gaps: with two tiled windows the master is inset by GAPS_INNER" "$(geom "$W" X)" 8
+W2=$(xdotool search --onlyvisible --class XTerm | grep -vx "$W" | head -1)
+B=$(xwininfo -id "$W" | sed -n 's/.*Border width: //p')
+expect "gaps: tiled windows are GAPS_INNER apart" $(( $(geom "$W2" X) - $(geom "$W" X) - $(geom "$W" WIDTH) - 2*B )) 8
+kill $P1 $P2; sleep 0.5
+
 xterm & P1=$!; xterm & P2=$!; sleep 1.5
 count() { grep -o '\[tag 1 win: [0-9]*\]' /tmp/hellxcb.txt; }
 expect "status file counts the windows" "$(count)" "[tag 1 win: 2]"

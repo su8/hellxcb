@@ -42,6 +42,7 @@ MA 02110-1301, USA.
 
 /* upstream compatility */
 #define True  true
+#define INVERSE_OUTER 2 /* SMART_GAPS value, as i3 smart_gaps inverse_outer */
 #define False false
 #define Mod1Mask     XCB_MOD_MASK_1
 #define Mod4Mask     XCB_MOD_MASK_4
@@ -61,6 +62,7 @@ static const char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCR
 
 #define LENGTH(x) (sizeof(x)/sizeof(*x))
 #define MIN(a,b)  ((a) < (b) ? (a) : (b))
+#define MAX(a,b)  ((a) > (b) ? (a) : (b))
 #define CLEANMASK(mask) (mask & ~(numlockmask | XCB_MOD_MASK_LOCK))
 #define BUTTONMASK      XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_BUTTON_RELEASE
 #define ISFFT(c)        (c->isfullscrn || c->isfloating || c->istransient)
@@ -211,6 +213,7 @@ static client* wintoclient(xcb_window_t w);
 static bool running = true, showpanel = SHOW_PANEL;
 static int previous_desktop = 0, current_desktop = 0, retval = 0;
 static int wh, ww, mode = DEFAULT_MODE, master_size = 0, growth = 0;
+static int gap_x = 0, gap_lt = 0, gap_rb = 0; /* set by tile(): tiling area x, window insets on left/top and right/bottom */
 static unsigned int numlockmask = 0, win_unfocus, win_focus;
 static xcb_connection_t *dis;
 static xcb_screen_t *screen;
@@ -246,6 +249,11 @@ static xcb_screen_t *xcb_screen_of_display(xcb_connection_t *con, int num) {
 static inline void xcb_move_resize(xcb_connection_t *con, xcb_window_t win, int x, int y, int w, int h) {
     uint32_t pos[4] = { (uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h };
     xcb_configure_window(con, win, XCB_MOVE_RESIZE, pos);
+}
+
+/* place a tiled window in the tiling area, shrunk by the insets tile() set */
+static inline void tile_move_resize(xcb_window_t win, int x, int y, int w, int h) {
+    xcb_move_resize(dis, win, gap_x + x + gap_lt, y + gap_lt, MAX(w - gap_lt - gap_rb, 1), MAX(h - gap_lt - gap_rb, 1));
 }
 
 /* wrapper to move window */
@@ -605,7 +613,7 @@ void grid(int hh, int cy) {
     for (client *c=head; c; c=c->next) {
         if (ISFFT(c)) continue; else ++i;
         if (i/rows >= cols - n%cols) rows = n/cols + 1;
-        xcb_move_resize(dis, c->win, cn*cw, cy + rn*ch/rows, cw - BORDER_WIDTH, ch/rows - BORDER_WIDTH);
+        tile_move_resize(c->win, cn*cw, cy + rn*ch/rows, cw - BORDER_WIDTH, ch/rows - BORDER_WIDTH);
         if (++rn >= rows) { rn = 0; cn++; }
     }
 }
@@ -1172,25 +1180,26 @@ void stack(int hh, int cy) {
      *     the first stack window so that it satisfies growth, and doesn't create gaps
      *     on the bottom of the screen.  */
     if (!c) return; else if (!n) {
-        xcb_move_resize(dis, c->win, 0, cy, ww - 2*BORDER_WIDTH, hh - 2*BORDER_WIDTH);
+        int bw = head->next ? 2*BORDER_WIDTH : 0; /* a lone client has no border, see update_current() */
+        tile_move_resize(c->win, 0, cy, ww - bw, hh - bw);
         return;
     } else if (n > 1) { d = (z - growth)%n + growth; z = (z - growth)/n; }
 
     /* tile the first non-floating, non-fullscreen window to cover the master area */
-    if (b) xcb_move_resize(dis, c->win, 0, cy, ww - 2*BORDER_WIDTH, ma - BORDER_WIDTH);
-    else   xcb_move_resize(dis, c->win, 0, cy, ma - BORDER_WIDTH, hh - 2*BORDER_WIDTH);
+    if (b) tile_move_resize(c->win, 0, cy, ww - 2*BORDER_WIDTH, ma - BORDER_WIDTH);
+    else   tile_move_resize(c->win, 0, cy, ma - BORDER_WIDTH, hh - 2*BORDER_WIDTH);
 
     /* tile the next non-floating, non-fullscreen (first) stack window with growth|d */
     for (c=c->next; c && ISFFT(c); c=c->next);
     int cx = b ? 0:ma, cw = (b ? hh:ww) - 2*BORDER_WIDTH - ma, ch = z - BORDER_WIDTH;
-    if (b) xcb_move_resize(dis, c->win, cx, cy += ma, ch - BORDER_WIDTH + d, cw);
-    else   xcb_move_resize(dis, c->win, cx, cy, cw, ch - BORDER_WIDTH + d);
+    if (b) tile_move_resize(c->win, cx, cy += ma, ch - BORDER_WIDTH + d, cw);
+    else   tile_move_resize(c->win, cx, cy, cw, ch - BORDER_WIDTH + d);
 
     /* tile the rest of the non-floating, non-fullscreen stack windows */
     for (b?(cx+=ch+d):(cy+=ch+d), c=c->next; c; c=c->next) {
         if (ISFFT(c)) continue;
-        if (b) { xcb_move_resize(dis, c->win, cx, cy, ch, cw); cx += z; }
-        else   { xcb_move_resize(dis, c->win, cx, cy, cw, ch); cy += z; }
+        if (b) { tile_move_resize(c->win, cx, cy, ch, cw); cx += z; }
+        else   { tile_move_resize(c->win, cx, cy, cw, ch); cy += z; }
     }
 }
 
@@ -1218,8 +1227,20 @@ void switch_mode(const Arg *arg) {
 /* tile all windows of current desktop - call the handler tiling function */
 void tile(void) {
     if (!head || mode == FLOAT) return; /* nothing to arrange */
-    layout[head->next ? mode : TILE](wh + (showpanel ? 0:PANEL_HEIGHT),
-                                (TOP_PANEL && showpanel ? PANEL_HEIGHT:0));
+    int n = 0;
+    for (client *c = head; c; c = c->next) if (!ISFFT(c)) ++n;
+    /* i3 smart_gaps: True drops all gaps for a lone window, INVERSE_OUTER shows outer gaps only for one */
+    bool inner = SMART_GAPS != True || n > 1, outer = SMART_GAPS == INVERSE_OUTER ? n < 2 : inner;
+    /* layouts overlap neighbours by one border, so a gap must also undo that overlap */
+    int g = inner && GAPS_INNER > 0 ? GAPS_INNER + BORDER_WIDTH : 0;
+    gap_lt = g/2; gap_rb = g - g/2;
+    /* edges get inner + outer; outer may be negative, as in i3 and sway, but not past the screen edge */
+    int e = (inner ? GAPS_INNER : 0) + (outer ? GAPS_OUTER : 0), lt = MAX(0, e - gap_lt), rb = MAX(0, e - gap_rb);
+    /* layouts read the tiling width from ww, so shrink it while they run */
+    int sw = ww; ww -= lt + rb; gap_x = lt;
+    layout[head->next ? mode : TILE](wh + (showpanel ? 0:PANEL_HEIGHT) - lt - rb,
+                                (TOP_PANEL && showpanel ? PANEL_HEIGHT:0) + lt);
+    ww = sw;
 }
 
 /* toggle visibility state of the panel */
