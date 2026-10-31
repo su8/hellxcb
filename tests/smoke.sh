@@ -67,11 +67,14 @@ kill $P1; sleep 0.5
 xterm & P1=$!; sleep 1.5
 W=$(xdotool search --onlyvisible --class XTerm | head -1)
 expect "smart gaps: a lone tiled window gets no gap" "$(geom "$W" X)" 0
+shaped() { xwininfo -shape -id "$1" | grep -c "Window shape extents"; }
+expect "a lone window filling the screen keeps square corners" "$(shaped "$W")" 0
 xterm & P2=$!; sleep 1.5
 expect "gaps: with two tiled windows the master is inset by GAPS_INNER" "$(geom "$W" X)" 8
 W2=$(xdotool search --onlyvisible --class XTerm | grep -vx "$W" | head -1)
 B=$(xwininfo -id "$W" | sed -n 's/.*Border width: //p')
 expect "gaps: tiled windows are GAPS_INNER apart" $(( $(geom "$W2" X) - $(geom "$W" X) - $(geom "$W" WIDTH) - 2*B )) 8
+expect "tiled windows with gaps get rounded corners" "$(shaped "$W")" 1
 kill $P1 $P2; sleep 0.5
 
 xterm & P1=$!; xterm & P2=$!; sleep 1.5

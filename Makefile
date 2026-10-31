@@ -26,8 +26,8 @@ PROG=hellxcb.c
 
 ADDITIONALFLAGS += -DVERSION=\"${VERSION}\" -DWMNAME=\"${WMNAME}\"
 
-INCS = -I. `pkg-config --cflags xcb xcb-icccm xcb-keysyms xproto`
-LIBS = `pkg-config --libs xcb xcb-icccm xcb-keysyms`
+INCS = -I. `pkg-config --cflags xcb xcb-icccm xcb-keysyms xcb-shape xproto`
+LIBS = `pkg-config --libs xcb xcb-icccm xcb-keysyms xcb-shape`
 
 CFLAGS += ${ADDITIONALFLAGS} -g2 -Wall -D_DEFAULT_SOURCE -Wextra -O2 -std=c99 -pipe -pedantic -Wundef -Wshadow -W -Wwrite-strings -Wcast-align -Wstrict-overflow=5 -Wconversion -Wpointer-arith -Wstrict-prototypes -Wformat=2 -Wsign-compare -Wendif-labels -Wredundant-decls -Winit-self
 LDFLAGS  += ${LIBS}
