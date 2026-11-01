@@ -664,7 +664,7 @@ void keypress(xcb_generic_event_t *e) {
 }
 
 /* explicitly kill a client - close the highlighted window
- * send a delete message and remove the client */
+ * ask it to close if it supports that, else kill it and remove the client */
 void killclient(const Arg *arg) {
     (void)arg;
     if (!current) return;
@@ -675,8 +675,8 @@ void killclient(const Arg *arg) {
         for(; n != reply.atoms_len; ++n) if ((got = reply.atoms[n] == wmatoms[WM_DELETE_WINDOW])) break;
         xcb_icccm_get_wm_protocols_reply_wipe(&reply);
     }
-    if (got) deletewindow(current->win);
-    else xcb_kill_client(dis, current->win);
+    if (got) { deletewindow(current->win); return; } /* destroynotify() removes it, unless it refuses, e.g. "save changes?" */
+    xcb_kill_client(dis, current->win);
     removeclient(current);
     desktopinfo();
 }
