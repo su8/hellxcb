@@ -978,7 +978,7 @@ void propertynotify(xcb_generic_event_t *e) {
 
     DEBUG("xcb: property notify");
     c = wintoclient(ev->window);
-    if (!c || ev->atom != XCB_ICCCM_WM_ALL_HINTS) return;
+    if (!c || ev->atom != XCB_ATOM_WM_HINTS) return;
     DEBUG("xcb: got hint!");
     if (xcb_icccm_get_wm_hints_reply(dis, xcb_icccm_get_wm_hints(dis, ev->window), &wmh, NULL)) /* TODO: error handling */
         c->isurgent = c != current && (wmh.flags & XCB_ICCCM_WM_HINT_X_URGENCY);
@@ -1317,6 +1317,7 @@ void update_current(client *c) {
         return;
     } else if (c == prevfocus) { prevfocus = prev_client(current = prevfocus ? prevfocus:head);
     } else if (c != current) { prevfocus = current; current = c; }
+    current->isurgent = false; /* it has the focus now */
 
     /* num of n:all fl:fullscreen ft:floating/transient windows */
     int n = 0, fl = 0, ft = 0;

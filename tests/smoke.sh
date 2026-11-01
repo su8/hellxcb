@@ -97,7 +97,14 @@ A=$(xdotool getactivewindow)
 B=$(xdotool search --onlyvisible --class XTerm | grep -vx "$A" | head -1)
 xdotool mousemove --window "$B" 30 30; sleep 0.5
 expect "focus follows the mouse after a floating window closed" "$(xdotool getactivewindow)" "$B"
+kill $P1 $P2 2>/dev/null; sleep 0.5
 
+# an xterm rings its bell in the background: Alt+BackSpace jumps to it
+xterm -xrm '*bellIsUrgent: true' -e sh -c 'sleep 2; printf "\a"; sleep 30' & P1=$!; sleep 1
+U=$(xdotool getactivewindow)
+xterm & P2=$!; sleep 2
+xdotool key alt+BackSpace; sleep 0.5
+expect "Alt+BackSpace focuses the urgent window" "$(xdotool getactivewindow)" "$U"
 
 xdotool key super+z; sleep 1.5
 D=$(xdotool search --onlyvisible --class hellxcb-dropdown | head -1)
