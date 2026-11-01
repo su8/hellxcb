@@ -1086,6 +1086,8 @@ void setfullscreen(client *c, bool fullscrn) {
     long data[] = { fullscrn ? netatoms[NET_FULLSCREEN] : XCB_NONE };
     if (fullscrn != c->isfullscrn) xcb_change_property(dis, XCB_PROP_MODE_REPLACE, c->win, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, fullscrn, data);
     if ((c->isfullscrn = fullscrn)) xcb_move_resize(dis, c->win, 0, 0, ww, wh + PANEL_HEIGHT);
+    client *t; for (t = head; t && t != c; t = t->next);
+    if (!t) return; /* on a hidden desktop: update_current() sets border and focus once it is shown */
     xcb_border_width(dis, c->win, (!head->next || c->isfullscrn) ? 0 : BORDER_WIDTH);
     update_current(c);
 }
