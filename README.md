@@ -1,6 +1,6 @@
 # hellxcb
 
-![](1pic.png)
+![hellxcb](hellxcb.png)
 
 Tiny(!) and monstrous! An xcb port of the [monsterwm][] tiling window manager; see its README for details.
 
@@ -30,21 +30,41 @@ pkgin install gmake pkg-config xcb-util-keysyms
 
 ## Installation
 
-Edit `config.h` to suit your needs, then build and install:
+Edit `config.h` to suit your needs, then build and install (use `gmake` on FreeBSD and NetBSD):
 
 ```sh
 $EDITOR config.h
 make
-sudo make install
+sudo make install    # to /usr/local; set PREFIX= for another place
 ```
 
-To have a mouse cursor, add this to `.xinitrc` before the `case` label:
+Start it from `~/.xinitrc`:
 
 ```sh
-xsetroot -cursor_name left_ptr
+xsetroot -cursor_name left_ptr    # a mouse cursor on the desktop
+while hellxcb; do :; done         # Alt+Ctrl+r restarts, Alt+Ctrl+q quits
 ```
 
 ## Usage
+
+The default bindings start `xterm` and `dmenu_run`: install them, or set `termcmd` and `menucmd` in `config.h`.
+`man hellxcb` lists every binding; the basics are:
+
+| Keys | Action |
+|---|---|
+| Alt+Shift+Return | start a terminal |
+| Super+v, Super+right click | start dmenu |
+| Alt+j / Alt+k | focus the next / previous window |
+| Alt+Return | swap the window with the master |
+| Alt+h / Alt+l | shrink / grow the master area |
+| Alt+c | close the window |
+| Alt+1..4 | go to a desktop |
+| Alt+Shift+1..4 | move the window to a desktop |
+| Alt+Tab | go to the last desktop |
+| Alt+Shift+t / b / g / f | tile, bottom stack, grid or floating mode |
+| Alt+left drag / Alt+right drag | move / resize a window, which then floats |
+| Alt+b | show or hide the panel |
+| Alt+Ctrl+r / Alt+Ctrl+q | restart / quit |
 
 - **Super+z** shows and hides a drop-down terminal; the first press starts it.
   Set its command (`dropdowncmd`), `DROPDOWN_WIDTH` and `DROPDOWN_HEIGHT` (percent of the screen) in `config.h`.
@@ -56,13 +76,19 @@ xsetroot -cursor_name left_ptr
   alacritty --class hellxcb-dropdown
   ```
 
-- **Alt+Shift+f** switches the desktop to floating mode: windows keep the place and size they ask for.
+- In floating mode (Alt+Shift+f), windows keep the place and size they ask for.
 
 ## Status bar
 
-The statusline in the picture above is [doomy](https://github.com/su8/doomy).
-hellxcb writes the current tag and mode to `$XDG_RUNTIME_DIR/hellxcb.txt`
-(`/tmp/hellxcb.txt` when it is not set, or the absolute path you give `HELLXCB_TAG_AND_MODE` in `config.h`).
+hellxcb has no bar of its own; the one in the picture above is [doomy](https://github.com/su8/doomy).
+It leaves `PANEL_HEIGHT` pixels free at the top for one (`TOP_PANEL False` for the bottom).
+Whenever the desktop, mode or windows change, it writes a line like this to `$XDG_RUNTIME_DIR/hellxcb.txt`
+(`/tmp/hellxcb.txt` when it is not set, or the absolute path you give `HELLXCB_TAG_AND_MODE` in `config.h`):
+
+```
+[tag: 1] [mode: tile] [windows: 2] [tag 1 win: 2] [tag 2 win: 0] [tag 3 win: 1] [tag 4 win: 0]
+```
+
 Use `sed` to give the tags names:
 
 ```sh
@@ -77,7 +103,7 @@ done &
 ## Compositor
 
 For shadows, fading and window animations, run [picom](https://github.com/yshui/picom) (v12 or newer for animations) next to hellxcb.
-Start it in `.xinitrc` with `picom -b` right after `exec hellxcb`. Example `~/.config/picom/picom.conf`:
+Start it in `~/.xinitrc` with `picom -b` before the hellxcb line. Example `~/.config/picom/picom.conf`:
 
 ```conf
 backend = "glx";
@@ -117,6 +143,8 @@ SMOKE_DISPLAY=:98 make check        # use another display
 sh tests/repeat.sh 20               # run it 20 times, stop at the first failure or hang
 sh tests/bench.sh ./hellxcb /path/to/other/hellxcb   # compare the speed of builds (needs gcc)
 ```
+
+`bench.sh` takes `-r runs` and `-n windows`, and `BENCH_DISPLAY` picks its display.
 
 ## Thanks
 
