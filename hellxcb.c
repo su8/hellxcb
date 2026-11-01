@@ -1286,13 +1286,14 @@ void togglepanel(const Arg *arg) {
     tile();
 }
 
-/* windows that request to unmap should lose their
- * client, so no invisible windows exist on screen
+/* windows that withdraw themselves should lose their
+ * client, so no invisible windows exist on screen.
+ * ICCCM withdrawal sends a synthetic unmap; the real unmaps include our own on desktop switches
  */
 void unmapnotify(xcb_generic_event_t *e) {
     xcb_unmap_notify_event_t *ev = (xcb_unmap_notify_event_t *)e;
     client *c = wintoclient(ev->window);
-    if (c && ev->event != screen->root) removeclient(c);
+    if (c && (ev->response_type & 0x80)) removeclient(c);
     desktopinfo();
 }
 
