@@ -1133,7 +1133,9 @@ void setup(int default_screen) {
 
 /* execute a command */
 void spawn(const Arg *arg) {
-    if (fork()) return;
+    pid_t pid = fork();
+    if (pid < 0) warn("cannot run %s", arg->com[0]);
+    if (pid) return;
     if (dis) close(xcb_get_file_descriptor(dis));
     setsid();
     signal(SIGCHLD, SIG_DFL); /* SIG_IGN would be inherited across exec */
