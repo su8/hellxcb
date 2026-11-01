@@ -61,13 +61,13 @@ rules = (
 Other presets: `fly-in`/`fly-out`, and `slide-in`/`slide-out` with `direction = "left"`, `"right"`, `"up"` or `"down"`. Wobbly windows need compiz, which is a window manager itself and cannot run next to hellxcb.
 
 The packages needed for example would be
-`libxcb` `libxcb-shape` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` [ `pkg-config` or `pkgconfig`or `pkgconf` ]
+`libxcb` `libxcb-shape` `xcb-util` `xcb-util-keysym` `gcc` `make` `xorg` [ `pkg-config` or `pkgconfig`or `pkgconf` ]
 
-The packages in Debian are: `gcc` `make` `pkg-config` `git` `libxcb1-dev` `libxcb-icccm4-dev` `libxcb-keysyms1-dev` `libxcb-shape0-dev` `x11proto-dev`, and `xorg` to run it
+The packages in Debian are: `gcc` `make` `pkg-config` `git` `libxcb1-dev` `libxcb-keysyms1-dev` `libxcb-shape0-dev` `x11proto-dev`, and `xorg` to run it
 
-For FreeBSD the packages are `gcc` `xorg` `gmake` `chromium` `git` `gawk` `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysyms` `pkgconf`
+For FreeBSD the packages are `gcc` `xorg` `gmake` `chromium` `git` `gawk` `libxcb` `xcb-util` `xcb-util-keysyms` `pkgconf`
 
-For NetBSD the packages are `clang` `gmake` `firefox` `git` `gawk` `xcb` `xcb-util` `xcb-util-wm` `xcb-util-keysyms` `pkg-config` and **full desktop with X11** installed on your system.
+For NetBSD the packages are `clang` `gmake` `firefox` `git` `gawk` `xcb` `xcb-util` `xcb-util-keysyms` `pkg-config` and **full desktop with X11** installed on your system.
 
 Bugs
 ----

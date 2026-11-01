@@ -27,7 +27,6 @@ MA 02110-1301, USA.
 #include <signal.h>
 #include <X11/keysym.h>
 #include <xcb/xcb.h>
-#include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
 #include <xcb/shape.h>
 
@@ -282,6 +281,13 @@ static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int co
         if (reply) { atoms[i] = reply->atom; free(reply); }
         else warnx("failed to register %s atom, things might not work right", names[i]);
     }
+}
+
+/* read a window property, NULL if missing or not of this type and format; free() the reply */
+static xcb_get_property_reply_t *getprop(xcb_window_t w, xcb_atom_t prop, xcb_atom_t type, uint8_t format, uint32_t len) {
+    xcb_get_property_reply_t *r = xcb_get_property_reply(dis, xcb_get_property(dis, 0, w, prop, type, 0, len), NULL);
+    if (r && (r->format != format || !r->value_len)) { free(r); r = NULL; }
+    return r;
 }
 
 /* check if other wm exists */
@@ -632,12 +638,12 @@ void keypress(xcb_generic_event_t *e) {
 void killclient(const Arg *arg) {
     (void)arg;
     if (!current) return;
-    xcb_icccm_get_wm_protocols_reply_t reply; unsigned int n = 0; bool got = false;
-    if (xcb_icccm_get_wm_protocols_reply(dis,
-        xcb_icccm_get_wm_protocols(dis, current->win, wmatoms[WM_PROTOCOLS]),
-        &reply, NULL)) { /* TODO: Handle error? */
-        for(; n != reply.atoms_len; ++n) if ((got = reply.atoms[n] == wmatoms[WM_DELETE_WINDOW])) break;
-        xcb_icccm_get_wm_protocols_reply_wipe(&reply);
+    bool got = false;
+    xcb_get_property_reply_t *p = getprop(current->win, wmatoms[WM_PROTOCOLS], XCB_ATOM_ATOM, 32, 32);
+    if (p) {
+        xcb_atom_t *a = xcb_get_property_value(p);
+        for (unsigned int n = 0; n < p->value_len && !got; n++) got = a[n] == wmatoms[WM_DELETE_WINDOW];
+        free(p);
     }
     if (got) { deletewindow(current->win); return; } /* destroynotify() removes it, unless it refuses, e.g. "save changes?" */
     xcb_kill_client(dis, current->win);
@@ -670,10 +676,8 @@ void mappingnotify(xcb_generic_event_t *e) {
  */
 void maprequest(xcb_generic_event_t *e) {
     xcb_map_request_event_t            *ev = (xcb_map_request_event_t*)e;
-    xcb_window_t                       transient = 0;
     xcb_get_window_attributes_reply_t  *attr = xcb_get_window_attributes_reply(dis, xcb_get_window_attributes(dis, ev->window), NULL);
-    xcb_icccm_get_wm_class_reply_t     ch;
-    xcb_get_property_reply_t           *prop_reply;
+    xcb_get_property_reply_t           *p;
 
     bool unmanaged = !attr || attr->override_redirect;
     free(attr);
@@ -682,37 +686,36 @@ void maprequest(xcb_generic_event_t *e) {
 
     bool follow = false, floating = false;
     int cd = current_desktop, newdsk = current_desktop;
-    if (xcb_icccm_get_wm_class_reply(dis, xcb_icccm_get_wm_class(dis, ev->window), &ch, NULL)) { /* TODO: error handling */
-        if (!dropdown_win && (!strcmp(ch.class_name, DROPDOWN_CLASS) || !strcmp(ch.instance_name, DROPDOWN_CLASS))) {
-            xcb_icccm_get_wm_class_reply_wipe(&ch);
+    if ((p = getprop(ev->window, XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, 8, 256))) {
+        char instance[1026] = {0}; /* "instance\0class\0", up to 1024 bytes, the last \0 may be missing */
+        memcpy(instance, xcb_get_property_value(p), (size_t)MIN(xcb_get_property_value_length(p), 1024));
+        free(p);
+        const char *class = instance + strlen(instance) + 1;
+        if (!dropdown_win && (!strcmp(class, DROPDOWN_CLASS) || !strcmp(instance, DROPDOWN_CLASS))) {
             dropdown_win = ev->window;
             dropdown(NULL); /* show it */
             return;
         }
         for (unsigned int i=0; i<LENGTH(rules); i++)
-            if (strstr(ch.class_name, rules[i].class) || strstr(ch.instance_name, rules[i].class)) {
+            if (strstr(class, rules[i].class) || strstr(instance, rules[i].class)) {
                 follow = rules[i].follow;
                 newdsk = (rules[i].desktop < 0) ? current_desktop:rules[i].desktop;
                 floating = rules[i].floating;
                 break;
             }
-        xcb_icccm_get_wm_class_reply_wipe(&ch);
     }
 
     if (cd != newdsk) select_desktop(newdsk);
     client *c = addwindow(ev->window);
 
-    xcb_icccm_get_wm_transient_for_reply(dis, xcb_icccm_get_wm_transient_for_unchecked(dis, ev->window), &transient, NULL); /* TODO: error handling */
-    c->istransient = transient?true:false;
+    p = getprop(ev->window, XCB_ATOM_WM_TRANSIENT_FOR, XCB_ATOM_WINDOW, 32, 1);
+    c->istransient = p && *(xcb_window_t *)xcb_get_property_value(p);
+    free(p);
     c->isfloating  = floating || c->istransient;
 
-    prop_reply  = xcb_get_property_reply(dis, xcb_get_property_unchecked(dis, 0, ev->window, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 0, 1), NULL); /* TODO: error handling */
-    if (prop_reply) {
-        if (prop_reply->format == 32 && prop_reply->value_len) { /* empty after we unset fullscreen */
-            xcb_atom_t *v = xcb_get_property_value(prop_reply);
-            setfullscreen(c, (v[0] == netatoms[NET_FULLSCREEN]));
-        }
-        free(prop_reply);
+    if ((p = getprop(ev->window, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, 1))) { /* empty after we unset fullscreen */
+        setfullscreen(c, *(xcb_atom_t *)xcb_get_property_value(p) == netatoms[NET_FULLSCREEN]);
+        free(p);
     }
 
     if (cd != newdsk) select_desktop(cd);
@@ -916,13 +919,12 @@ void prev_win(const Arg *arg) {
  */
 void propertynotify(xcb_generic_event_t *e) {
     xcb_property_notify_event_t *ev = (xcb_property_notify_event_t*)e;
-    xcb_icccm_wm_hints_t wmh;
-    client *c;
-
-    c = wintoclient(ev->window);
+    client *c = wintoclient(ev->window);
     if (!c || ev->atom != XCB_ATOM_WM_HINTS) return;
-    if (xcb_icccm_get_wm_hints_reply(dis, xcb_icccm_get_wm_hints(dis, ev->window), &wmh, NULL)) /* TODO: error handling */
-        c->isurgent = c != current && (wmh.flags & XCB_ICCCM_WM_HINT_X_URGENCY);
+    xcb_get_property_reply_t *p = getprop(ev->window, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_HINTS, 32, 1);
+    if (!p) return;
+    c->isurgent = c != current && (*(uint32_t *)xcb_get_property_value(p) & 1 << 8); /* flags: XUrgencyHint */
+    free(p);
 }
 
 /* to quit just stop receiving events
