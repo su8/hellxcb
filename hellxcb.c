@@ -542,9 +542,8 @@ void destroynotify(xcb_generic_event_t *e) {
     DEBUG("xcb: destoroy notify");
     xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)e;
     client *c = wintoclient(ev->window);
-    if (c) removeclient(c);
+    if (c) { removeclient(c); desktopinfo(); }
     else if (ev->window == dropdown_win) { dropdown_win = XCB_WINDOW_NONE; dropdown_shown = false; update_current(current); }
-    desktopinfo();
 }
 
 /* show or hide the drop-down terminal, start it the first time
@@ -982,7 +981,6 @@ void propertynotify(xcb_generic_event_t *e) {
     DEBUG("xcb: got hint!");
     if (xcb_icccm_get_wm_hints_reply(dis, xcb_icccm_get_wm_hints(dis, ev->window), &wmh, NULL)) /* TODO: error handling */
         c->isurgent = c != current && (wmh.flags & XCB_ICCCM_WM_HINT_X_URGENCY);
-    desktopinfo();
 }
 
 /* to quit just stop receiving events
@@ -1295,8 +1293,7 @@ void togglepanel(const Arg *arg) {
 void unmapnotify(xcb_generic_event_t *e) {
     xcb_unmap_notify_event_t *ev = (xcb_unmap_notify_event_t *)e;
     client *c = wintoclient(ev->window);
-    if (c && (ev->response_type & 0x80)) removeclient(c);
-    desktopinfo();
+    if (c && (ev->response_type & 0x80)) { removeclient(c); desktopinfo(); }
 }
 
 /* highlight borders and set active window and input focus
