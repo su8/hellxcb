@@ -600,7 +600,7 @@ unsigned int getcolor(const char *color) {
     xcb_alloc_color_reply_t *c = xcb_alloc_color_reply(dis, xcb_alloc_color(dis, screen->default_colormap,
                                      (uint16_t)(r * 257), (uint16_t)(g * 257), (uint16_t)(b * 257)), NULL);
     if (!c)
-        errx(EXIT_FAILURE, "error: cannot allocate color '%s'\n", color);
+        errx(EXIT_FAILURE, "error: cannot allocate color '%s'", color);
 
     pixel = c->pixel; free(c);
     return pixel;
@@ -800,7 +800,7 @@ void mousemotion(const Arg *arg) {
     do {
         if (e) free(e);
         xcb_flush(dis);
-        if (!(e = xcb_wait_for_event(dis))) err(EXIT_FAILURE, "error: X11 connection got interrupted\n");
+        if (!(e = xcb_wait_for_event(dis))) errx(EXIT_FAILURE, "error: X11 connection got interrupted");
         switch (e->response_type & ~0x80) {
             case XCB_CONFIGURE_REQUEST: case XCB_MAP_REQUEST: case XCB_DESTROY_NOTIFY: case XCB_UNMAP_NOTIFY:
                 events[e->response_type & ~0x80](e);
@@ -1012,7 +1012,7 @@ void run(void) {
     xcb_generic_event_t *ev;
     while(running) {
         xcb_flush(dis);
-        if (xcb_connection_has_error(dis)) err(EXIT_FAILURE, "error: X11 connection got interrupted\n");
+        if (xcb_connection_has_error(dis)) errx(EXIT_FAILURE, "error: X11 connection got interrupted");
         if ((ev = xcb_wait_for_event(dis))) {
             if (events[ev->response_type & ~0x80]) events[ev->response_type & ~0x80](ev);
             free(ev);
@@ -1091,7 +1091,7 @@ int setup_keyboard(void)
 void setup(int default_screen) {
     if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) err(EXIT_FAILURE, "cannot ignore SIGCHLD"); /* children are reaped by the kernel */
     screen = xcb_screen_of_display(dis, default_screen);
-    if (!screen) err(EXIT_FAILURE, "error: cannot aquire screen\n");
+    if (!screen) errx(EXIT_FAILURE, "error: cannot acquire screen");
 
     ww = screen->width_in_pixels;
     wh = screen->height_in_pixels - PANEL_HEIGHT;
@@ -1103,7 +1103,7 @@ void setup(int default_screen) {
 
     /* setup keyboard */
     if (!(keysyms = xcb_key_symbols_alloc(dis)) || setup_keyboard() == -1)
-        err(EXIT_FAILURE, "error: failed to setup keyboard\n");
+        errx(EXIT_FAILURE, "error: failed to setup keyboard");
 
     /* set up atoms for dialog/notification windows */
     xcb_get_atoms(WM_ATOM_NAME, wmatoms, WM_COUNT);
@@ -1111,7 +1111,7 @@ void setup(int default_screen) {
 
     /* check if another wm is running */
     if (xcb_checkotherwm())
-        err(EXIT_FAILURE, "error: other wm is running\n");
+        errx(EXIT_FAILURE, "error: other wm is running");
 
     xcb_change_property(dis, XCB_PROP_MODE_REPLACE, screen->root, netatoms[NET_SUPPORTED], XCB_ATOM_ATOM, 32, NET_COUNT, netatoms);
     grabkeys();
@@ -1329,7 +1329,7 @@ int main(int argc, char *argv[]) {
         default: errx(EXIT_FAILURE, "%s", USAGE);
     } else if (argc != 1) errx(EXIT_FAILURE, "%s", USAGE);
     if (xcb_connection_has_error((dis = xcb_connect(NULL, &default_screen))))
-        errx(EXIT_FAILURE, "error: cannot open display\n");
+        errx(EXIT_FAILURE, "error: cannot open display");
     setup(default_screen);
     desktopinfo();
     run();
