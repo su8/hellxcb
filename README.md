@@ -38,12 +38,18 @@ make
 sudo make install    # to /usr/local; set PREFIX= for another place
 ```
 
-Start it from `~/.xinitrc`:
+Put these lines in `~/.xinitrc`:
 
 ```sh
+#!/bin/sh
 xsetroot -cursor_name left_ptr    # a mouse cursor on the desktop
+picom -b                          # optional compositor, see below
 while hellxcb; do :; done         # Alt+Ctrl+r restarts, Alt+Ctrl+q quits
 ```
+
+Then run `startx` from the console. It starts X first, then runs `~/.xinitrc`,
+so these lines fail with "unable to open display" if you type them on the console instead.
+With a display manager such as xdm, put the same lines in `~/.xsession` and `chmod +x` it.
 
 ## Usage
 
@@ -103,7 +109,7 @@ done &
 ## Compositor
 
 For shadows, fading and window animations, run [picom](https://github.com/yshui/picom) (v12 or newer for animations) next to hellxcb.
-Start it in `~/.xinitrc` with `picom -b` before the hellxcb line. Example `~/.config/picom/picom.conf`:
+Start it with `picom -b` in `~/.xinitrc`, as above. Example `~/.config/picom/picom.conf`:
 
 ```conf
 backend = "glx";
