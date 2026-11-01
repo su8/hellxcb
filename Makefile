@@ -36,19 +36,19 @@ all:
 	$(CC) -o $(PACKAGE) $(PROG) $(CFLAGS) $(INCS) $(LDFLAGS)
 
 clean:
-	echo cleaning
+	@echo cleaning
 	rm -fv $(PACKAGE) ${WMNAME}-${VERSION}.tar.gz
 
 install:
 	install -D -s -m 755 $(PACKAGE) ${DESTDIR}${BINDIR}/$(PACKAGE)
-	echo installing manual page to ${DESTDIR}${MANPREFIX}/man.1
+	@echo installing manual page to ${DESTDIR}${MANPREFIX}/man1
 	install -Dm644 ${WMNAME}.1 ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
 
 check: all
 	sh tests/smoke.sh ./$(PACKAGE)
 
 uninstall:
-	echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
+	@echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
 	rm -f ${DESTDIR}${MANPREFIX}/man1/${WMNAME}.1
 	rm -f ${DESTDIR}${BINDIR}/$(PACKAGE)
 
