@@ -89,7 +89,7 @@ The default bindings start `xterm` and `dmenu_run`: install them, or set `termcm
 hellxcb has no bar of its own; the one in the picture above is [doomy](https://github.com/su8/doomy).
 It leaves `PANEL_HEIGHT` pixels free at the top for one (`TOP_PANEL False` for the bottom).
 Whenever the desktop, mode or windows change, it writes a line like this to `$XDG_RUNTIME_DIR/hellxcb.txt`
-(`/tmp/hellxcb.txt` when it is not set):
+(`$XDG_CACHE_HOME/hellxcb.txt` or `~/.cache/hellxcb.txt` when it is not set, the same folder doomy reads from):
 
 ```
 [tag: 1] [mode: tile] [windows: 2] [tag 1 win: 2] [tag 2 win: 0] [tag 3 win: 1] [tag 4 win: 0]
@@ -98,7 +98,7 @@ Whenever the desktop, mode or windows change, it writes a line like this to `$XD
 Use `sed` to give the tags names:
 
 ```sh
-d=${XDG_RUNTIME_DIR:-/tmp}
+d=${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}
 while true; do
   sed -E 's/tag: 1/tag: web/g; s/tag: 2/tag: dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g;
           s/tag 1/web/g; s/tag 2/dev/g; s/tag 3/misc/g; s/tag 4/float/g;' \
