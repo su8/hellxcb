@@ -15,11 +15,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 */
-#define _POSIX_C_SOURCE 200809L /* O_NOFOLLOW, fdopen */
 #include <stdlib.h>
 #include <stdio.h>
 #include <err.h>
-#include <fcntl.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
@@ -511,21 +509,23 @@ void deletewindow(xcb_window_t w) {
 }
 
 /* write the current desktop, its mode and the window count of every desktop
- * to HELLXCB_TAG_AND_MODE in $XDG_RUNTIME_DIR, e.g. for a status bar */
+ * to HELLXCB_TAG_AND_MODE, e.g. for a status bar */
 void desktopinfo(void) {
     static const char *modes[] = { "tile", "bstack", "grid", "float" };
     int n[DESKTOPS] = {0};
     FILE *fp = NULL;
     static char path[4096];
     if (!*path) {
-        const char *dir = getenv("XDG_RUNTIME_DIR"); /* private to the user, /tmp is shared */
-        snprintf(path, sizeof path, "%s/%s", dir && *dir ? dir : "/tmp", HELLXCB_TAG_AND_MODE);
+        /* the folder GLib's g_get_user_runtime_dir() gives, where doomy reads its file:
+         * $XDG_RUNTIME_DIR, else $XDG_CACHE_HOME, else ~/.cache, all private to the user */
+        const char *run = getenv("XDG_RUNTIME_DIR"), *cache = getenv("XDG_CACHE_HOME"), *home = getenv("HOME");
+        if (run && *run) snprintf(path, sizeof path, "%s/%s", run, HELLXCB_TAG_AND_MODE);
+        else if (cache && *cache) snprintf(path, sizeof path, "%s/%s", cache, HELLXCB_TAG_AND_MODE);
+        else snprintf(path, sizeof path, "%s/.cache/%s", home ? home : "", HELLXCB_TAG_AND_MODE);
     }
     save_desktop(current_desktop);
     for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) n[d]++;
-    /* O_NOFOLLOW: in a shared /tmp, never write through a symlink planted there */
-    int fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW, 0644);
-    if (fd < 0 || !(fp = fdopen(fd, "w"))) { warn("cannot write %s", path); if (fd >= 0) close(fd); return; }
+    if (!(fp = fopen(path, "w"))) { warn("cannot write %s", path); return; }
     fprintf(fp, "[tag: %d] [mode: %s] [windows: %d]", current_desktop + 1, modes[mode], n[current_desktop]);
     for (int d = 0; d < DESKTOPS; d++) fprintf(fp, " [tag %d win: %d]", d + 1, n[d]);
     fclose(fp);
