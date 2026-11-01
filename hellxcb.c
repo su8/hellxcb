@@ -350,7 +350,7 @@ void change_desktop(const Arg *arg) {
     for (client *c=head; c; c=c->next) if (c != current) xcb_unmap_window(dis, c->win);
     if (current) xcb_unmap_window(dis, current->win);
     select_desktop(arg->i);
-    tile(); update_current(current);
+    update_current(current); /* it tiles too */
     desktopinfo();
 }
 
@@ -475,7 +475,7 @@ void cycle_mode(const Arg *arg) {
     (void)arg;
     for (client *c=head; c; c=c->next) c->isfloating = False;
     mode = (mode + 1) % MODES;
-    tile(); update_current(current);
+    update_current(current); /* it tiles too */
     desktopinfo();
 }
 
@@ -767,7 +767,7 @@ void mousemotion(const Arg *arg) {
     if (!grabbed) return;
 
     if (current->isfullscrn) setfullscreen(current, False);
-    tile(); update_current(current);
+    update_current(current); /* it tiles too */
 
     xcb_generic_event_t *e = NULL;
     xcb_motion_notify_event_t *ev = NULL;
@@ -1191,7 +1191,7 @@ void swap_master(const Arg *arg) {
 void switch_mode(const Arg *arg) {
     if (mode == arg->i) for (client *c=head; c; c=c->next) c->isfloating = False;
     mode = arg->i;
-    tile(); update_current(current);
+    update_current(current); /* it tiles too */
     desktopinfo();
 }
 
