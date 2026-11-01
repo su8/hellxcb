@@ -98,10 +98,12 @@ Whenever the desktop, mode or windows change, it writes a line like this to `$XD
 Use `sed` to give the tags names:
 
 ```sh
+d=${XDG_RUNTIME_DIR:-/tmp}
 while true; do
   sed -E 's/tag: 1/tag: web/g; s/tag: 2/tag: dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g;
           s/tag 1/web/g; s/tag 2/dev/g; s/tag 3/misc/g; s/tag 4/float/g;' \
-    "${XDG_RUNTIME_DIR:-/tmp}/hellxcb.txt" > /tmp/doomy.txt
+    "$d/hellxcb.txt" > "$d/doomy.txt.tmp"
+  mv "$d/doomy.txt.tmp" "$d/doomy.txt"   # in one step, so doomy never reads it half written
   sleep 1
 done &
 ```
