@@ -20,7 +20,6 @@ MA 02110-1301, USA.
 #include <stdio.h>
 #include <err.h>
 #include <fcntl.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
@@ -280,7 +279,7 @@ static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int co
 
     for (unsigned int i = 0; i < count; i++) cookies[i] = xcb_intern_atom(dis, 0, (uint16_t)strlen(names[i]), names[i]);
     for (unsigned int i = 0; i < count; i++) {
-        reply = xcb_intern_atom_reply(dis, cookies[i], NULL); /* TODO: Handle error */
+        reply = xcb_intern_atom_reply(dis, cookies[i], NULL);
         if (reply) { atoms[i] = reply->atom; free(reply); }
         else warnx("failed to register %s atom, things might not work right", names[i]);
     }
@@ -772,7 +771,7 @@ void mousemotion(const Arg *arg) {
     int mx, my, winx, winy, winw, winh, xw, yh;
 
     if (!current) return;
-    geometry = xcb_get_geometry_reply(dis, xcb_get_geometry(dis, current->win), NULL); /* TODO: error handling */
+    geometry = xcb_get_geometry_reply(dis, xcb_get_geometry(dis, current->win), NULL);
     if (geometry) {
         winx = geometry->x;     winy = geometry->y;
         winw = geometry->width; winh = geometry->height;
@@ -1064,11 +1063,10 @@ int setup_keyboard(void)
     xcb_keycode_t                    *modmap;
     xcb_keycode_t                    *numlock;
 
-    reply   = xcb_get_modifier_mapping_reply(dis, xcb_get_modifier_mapping_unchecked(dis), NULL); /* TODO: error checking */
+    reply   = xcb_get_modifier_mapping_reply(dis, xcb_get_modifier_mapping_unchecked(dis), NULL);
     if (!reply) return -1;
 
-    modmap = xcb_get_modifier_mapping_keycodes(reply);
-    if (!modmap) return -1;
+    modmap = xcb_get_modifier_mapping_keycodes(reply); /* points into reply, never NULL */
 
     if (!(numlock = xcb_key_symbols_get_keycode(keysyms, XK_Num_Lock))) { free(reply); return 0; }
     for (unsigned int i=0; i<8; i++)
