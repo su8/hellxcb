@@ -5,7 +5,7 @@
 # BORDER_WIDTH 2, GAPS_INNER 8, SMART_GAPS True, the MPlayer and Gimp rules.
 set -u
 WMBIN=${1:-./hellxcb}
-export DISPLAY=:99
+export DISPLAY=${SMOKE_DISPLAY:-:99} # another display: SMOKE_DISPLAY=:98 make check
 Xvfb "$DISPLAY" -screen 0 800x600x24 >/dev/null 2>&1 & XPID=$!
 sleep 1
 "$WMBIN" & WM=$!
