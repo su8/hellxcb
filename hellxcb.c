@@ -32,15 +32,6 @@ MA 02110-1301, USA.
 #include <xcb/xcb_keysyms.h>
 #include <xcb/shape.h>
 
-/* set this to 1 to enable debug prints */
-#if 0
-#  define DEBUG(x)      puts(x);
-#  define DEBUGP(x,...) printf(x, ##__VA_ARGS__);
-#else
-#  define DEBUG(x)      ;
-#  define DEBUGP(x,...) ;
-#endif
-
 /* upstream compatility */
 #define True  true
 #define INVERSE_OUTER 2 /* SMART_GAPS value, as i3 smart_gaps inverse_outer */
@@ -297,10 +288,8 @@ static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int co
     for (unsigned int i = 0; i < count; i++) cookies[i] = xcb_intern_atom(dis, 0, (uint16_t)strlen(names[i]), names[i]);
     for (unsigned int i = 0; i < count; i++) {
         reply = xcb_intern_atom_reply(dis, cookies[i], NULL); /* TODO: Handle error */
-        if (reply) {
-            DEBUGP("%s : %d\n", names[i], reply->atom);
-            atoms[i] = reply->atom; free(reply);
-        } else warnx("failed to register %s atom, things might not work right", names[i]);
+        if (reply) { atoms[i] = reply->atom; free(reply); }
+        else warnx("failed to register %s atom, things might not work right", names[i]);
     }
 }
 
@@ -341,7 +330,6 @@ client* addwindow(xcb_window_t w) {
 /* on the press of a button check to see if there's a binded function to call */
 void buttonpress(xcb_generic_event_t *e) {
     xcb_button_press_event_t *ev = (xcb_button_press_event_t*)e;
-    DEBUGP("xcb: button press: %d state: %d\n", ev->detail, ev->state);
 
     client *c = wintoclient(ev->event);
     if (!c) return;
@@ -539,7 +527,6 @@ void desktopinfo(void) {
  * on receival, remove the appropriate client that held that window
  */
 void destroynotify(xcb_generic_event_t *e) {
-    DEBUG("xcb: destoroy notify");
     xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)e;
     client *c = wintoclient(ev->window);
     if (c) { removeclient(c); desktopinfo(); }
@@ -571,7 +558,6 @@ void dropdown(const Arg *arg) {
 void enternotify(xcb_generic_event_t *e) {
     xcb_enter_notify_event_t *ev = (xcb_enter_notify_event_t*)e;
     if (!FOLLOW_MOUSE) return;
-    DEBUG("xcb: enter notify");
     client *c = wintoclient(ev->event);
     if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !dropdown_shown
           && !(current && current->istransient)) update_current(c); /* an open dialog keeps the focus */
@@ -656,7 +642,6 @@ void grid(int hh, int cy) {
 void keypress(xcb_generic_event_t *e) {
     xcb_key_press_event_t *ev       = (xcb_key_press_event_t *)e;
     xcb_keysym_t           keysym   = xcb_key_symbols_get_keysym(keysyms, ev->detail, 0);
-    DEBUGP("xcb: keypress: code: %d mod: %d\n", ev->detail, ev->state);
     for (unsigned int i=0; i<LENGTH(keys); i++)
         if (keysym == keys[i].keysym && CLEANMASK(keys[i].mod) == CLEANMASK(ev->state) && keys[i].func)
                 keys[i].func(&keys[i].arg);
@@ -715,12 +700,10 @@ void maprequest(xcb_generic_event_t *e) {
     free(attr[0]);
     if (unmanaged) return;
     if (wintoclient(ev->window)) return;
-    DEBUG("xcb: map request");
 
     bool follow = false, floating = false;
     int cd = current_desktop, newdsk = current_desktop;
     if (xcb_icccm_get_wm_class_reply(dis, xcb_icccm_get_wm_class(dis, ev->window), &ch, NULL)) { /* TODO: error handling */
-        DEBUGP("class: %s instance: %s\n", ch.class_name, ch.instance_name);
         if (!dropdown_win && (!strcmp(ch.class_name, DROPDOWN_CLASS) || !strcmp(ch.instance_name, DROPDOWN_CLASS))) {
             xcb_icccm_get_wm_class_reply_wipe(&ch);
             dropdown_win = ev->window;
@@ -748,16 +731,10 @@ void maprequest(xcb_generic_event_t *e) {
     if (prop_reply) {
         if (prop_reply->format == 32 && prop_reply->value_len) { /* empty after we unset fullscreen */
             xcb_atom_t *v = xcb_get_property_value(prop_reply);
-            for (unsigned int i=0; i<prop_reply->value_len; i++)
-                DEBUGP("%d : %d\n", i, v[0]);
             setfullscreen(c, (v[0] == netatoms[NET_FULLSCREEN]));
         }
         free(prop_reply);
     }
-
-    /** information for stdout **/
-    DEBUGP("transient: %d\n", c->istransient);
-    DEBUGP("floating:  %d\n", c->isfloating);
 
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
@@ -770,23 +747,10 @@ void maprequest(xcb_generic_event_t *e) {
 /* move the mouse pointer to the rightmost screen edge */
 void mouse_aside(const Arg *arg) {
     (void)arg;
-    xcb_query_pointer_reply_t	*reply = NULL;
-    int16_t                     rel_x = 0, rel_y = 0;
-
-    reply = xcb_query_pointer_reply(dis,
-                                    xcb_query_pointer(dis, screen->root),
-                                    NULL);
-    if (reply) {
-        rel_x = (int16_t)(ww - reply->root_x);
-        DEBUGP("%s: warp relative pos (%d,%d)\n", __func__, rel_x, rel_y);
-        xcb_warp_pointer(dis,
-                         XCB_NONE, XCB_NONE,
-                         0, 0, 0, 0,
-                         rel_x, rel_y);
-        free(reply);
-    } else {
-        DEBUGP("%s: no mouse query info\n", __func__);
-    }
+    xcb_query_pointer_reply_t *reply = xcb_query_pointer_reply(dis, xcb_query_pointer(dis, screen->root), NULL);
+    if (!reply) return;
+    xcb_warp_pointer(dis, XCB_NONE, XCB_NONE, 0, 0, 0, 0, (int16_t)(ww - reply->root_x), 0);
+    free(reply);
 }
 
 /* grab the pointer and get it's current position
@@ -862,7 +826,6 @@ void mousemotion(const Arg *arg) {
         }
     } while(!ungrab && current);
     free(e);
-    DEBUG("xcb: ungrab");
     xcb_ungrab_pointer(dis, XCB_CURRENT_TIME);
 }
 
@@ -977,10 +940,8 @@ void propertynotify(xcb_generic_event_t *e) {
     xcb_icccm_wm_hints_t wmh;
     client *c;
 
-    DEBUG("xcb: property notify");
     c = wintoclient(ev->window);
     if (!c || ev->atom != XCB_ATOM_WM_HINTS) return;
-    DEBUG("xcb: got hint!");
     if (xcb_icccm_get_wm_hints_reply(dis, xcb_icccm_get_wm_hints(dis, ev->window), &wmh, NULL)) /* TODO: error handling */
         c->isurgent = c != current && (wmh.flags & XCB_ICCCM_WM_HINT_X_URGENCY);
 }
@@ -1048,7 +1009,6 @@ void run(void) {
         if (xcb_connection_has_error(dis)) err(EXIT_FAILURE, "error: X11 connection got interrupted\n");
         if ((ev = xcb_wait_for_event(dis))) {
             if (events[ev->response_type & ~0x80]) events[ev->response_type & ~0x80](ev);
-            else { DEBUGP("xcb: unimplented event: %d\n", ev->response_type & ~0x80); }
             free(ev);
         }
     }
@@ -1082,7 +1042,6 @@ void select_desktop(int i) {
 
 /* set or unset fullscreen state of client */
 void setfullscreen(client *c, bool fullscrn) {
-    DEBUGP("xcb: set fullscreen: %d\n", fullscrn);
     long data[] = { fullscrn ? netatoms[NET_FULLSCREEN] : XCB_NONE };
     if (fullscrn != c->isfullscrn) xcb_change_property(dis, XCB_PROP_MODE_REPLACE, c->win, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, fullscrn, data);
     if ((c->isfullscrn = fullscrn)) xcb_move_resize(dis, c->win, 0, 0, ww, wh + PANEL_HEIGHT);
@@ -1111,11 +1070,7 @@ int setup_keyboard(void)
            xcb_keycode_t keycode = modmap[i * reply->keycodes_per_modifier + j];
            if (keycode == XCB_NO_SYMBOL) continue;
            for (unsigned int n=0; numlock[n] != XCB_NO_SYMBOL; n++)
-               if (numlock[n] == keycode) {
-                   DEBUGP("xcb: found num-lock %d\n", 1 << i);
-                   numlockmask = 1 << i;
-                   break;
-               }
+               if (numlock[n] == keycode) { numlockmask = 1 << i; break; }
        }
 
     free(numlock); free(reply);
