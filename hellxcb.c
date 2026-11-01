@@ -1021,7 +1021,7 @@ void select_desktop(int i) {
 
 /* set or unset fullscreen state of client */
 void setfullscreen(client *c, bool fullscrn) {
-    long data[] = { fullscrn ? netatoms[NET_FULLSCREEN] : XCB_NONE };
+    uint32_t data[] = { fullscrn ? netatoms[NET_FULLSCREEN] : XCB_NONE };
     if (fullscrn != c->isfullscrn) xcb_change_property(dis, XCB_PROP_MODE_REPLACE, c->win, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, fullscrn, data);
     if ((c->isfullscrn = fullscrn)) xcb_move_resize(dis, c->win, 0, 0, ww, wh + PANEL_HEIGHT);
     client *t; for (t = head; t && t != c; t = t->next);
