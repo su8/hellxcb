@@ -1,39 +1,85 @@
-hellxcb
-=============
+# hellxcb
 
 ![](1pic.png)
 
-→ tiny(!) and monsterous!
-----------------------
-This is xcb port of monsterwm tiling window manager.
-For more detailed README refer to [monsterwm][]
+Tiny(!) and monstrous! An xcb port of the [monsterwm][] tiling window manager; see its README for details.
 
 The code editor in the picture above is Microsoft Visual Code Editor -- not **Studio Editor**
 
-Installation
-------------
+## Dependencies
 
-Open up `config.h`
-and edit to suit your needs.
-Build and install.
+A C compiler, `make`, `pkg-config` (or `pkgconf`), `libxcb` with shape and `xcb-util-keysyms`.
 
-    $ $EDITOR_OF_CHOICE config.h
-    $ make
-    # make install
+Debian:
 
-To have mouse cursor, open up `.xinitrc` and append somewhere before the `case` label the following `xsetroot -cursor_name left_ptr`
+```sh
+apt install gcc make pkg-config libxcb-keysyms1-dev libxcb-shape0-dev
+```
 
-The statusline in the picture above is made of https://github.com/su8/doomy . You can use `sed` to make a named tag/workspace from `$XDG_RUNTIME_DIR/hellxcb.txt` (`/tmp/hellxcb.txt` when it is not set, or the absolute path you give `HELLXCB_TAG_AND_MODE` in `config.h`), just use `while true; do cat "${XDG_RUNTIME_DIR:-/tmp}/hellxcb.txt" | sed -E 's/tag: 1/tag: web/g; s/tag: 2/tag: dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g; s/tag 1/web/g; s/tag 2/dev/g; s/tag 3/misc/g; s/tag 4/float/g;' > /tmp/doomy.txt; sleep 1; done &` if you use https://github.com/su8/doomy
+FreeBSD:
 
-Super+z shows and hides a drop-down terminal; the first press starts it. Set its command (`dropdowncmd`), `DROPDOWN_WIDTH` and `DROPDOWN_HEIGHT` (percent of the screen) in `config.h`. The window is found by its class or instance name `hellxcb-dropdown`, so other terminals need their own flag for it, e.g. `st -c hellxcb-dropdown`, `urxvt -name hellxcb-dropdown` or `alacritty --class hellxcb-dropdown`.
+```sh
+pkg install gmake pkgconf xcb-util-keysyms
+```
 
-Alt+Shift+f switches the desktop to floating mode: windows keep the place and size they ask for.
+NetBSD (with a full X11 desktop installed):
 
-`make check` runs a smoke test on a virtual X server. It needs `Xvfb`, `xdotool`, `xterm` and `xwininfo`; `SMOKE_DISPLAY=:98 make check` picks another display. `sh tests/repeat.sh 20` runs it 20 times and stops at the first failure or hang. `sh tests/bench.sh ./hellxcb /path/to/other/hellxcb` compares the speed of builds (it also needs `gcc`).
+```sh
+pkgin install gmake pkg-config xcb-util-keysyms
+```
 
-For shadows, fading and window animations, run [picom](https://github.com/yshui/picom) (v12 or newer for animations) next to hellxcb. Start it in `.xinitrc` with `picom -b` right after `exec hellxcb`. Example `~/.config/picom/picom.conf`:
+## Installation
 
-```python
+Edit `config.h` to suit your needs, then build and install:
+
+```sh
+$EDITOR config.h
+make
+sudo make install
+```
+
+To have a mouse cursor, add this to `.xinitrc` before the `case` label:
+
+```sh
+xsetroot -cursor_name left_ptr
+```
+
+## Usage
+
+- **Super+z** shows and hides a drop-down terminal; the first press starts it.
+  Set its command (`dropdowncmd`), `DROPDOWN_WIDTH` and `DROPDOWN_HEIGHT` (percent of the screen) in `config.h`.
+  The window is found by its class or instance name `hellxcb-dropdown`, so other terminals need their own flag for it:
+
+  ```sh
+  st -c hellxcb-dropdown
+  urxvt -name hellxcb-dropdown
+  alacritty --class hellxcb-dropdown
+  ```
+
+- **Alt+Shift+f** switches the desktop to floating mode: windows keep the place and size they ask for.
+
+## Status bar
+
+The statusline in the picture above is [doomy](https://github.com/su8/doomy).
+hellxcb writes the current tag and mode to `$XDG_RUNTIME_DIR/hellxcb.txt`
+(`/tmp/hellxcb.txt` when it is not set, or the absolute path you give `HELLXCB_TAG_AND_MODE` in `config.h`).
+Use `sed` to give the tags names:
+
+```sh
+while true; do
+  sed -E 's/tag: 1/tag: web/g; s/tag: 2/tag: dev/g; s/tag: 3/tag: misc/g; s/tag: 4/tag: float/g;
+          s/tag 1/web/g; s/tag 2/dev/g; s/tag 3/misc/g; s/tag 4/float/g;' \
+    "${XDG_RUNTIME_DIR:-/tmp}/hellxcb.txt" > /tmp/doomy.txt
+  sleep 1
+done &
+```
+
+## Compositor
+
+For shadows, fading and window animations, run [picom](https://github.com/yshui/picom) (v12 or newer for animations) next to hellxcb.
+Start it in `.xinitrc` with `picom -b` right after `exec hellxcb`. Example `~/.config/picom/picom.conf`:
+
+```conf
 backend = "glx";
 vsync = true;
 shadow = true;
@@ -58,37 +104,28 @@ rules = (
 );
 ```
 
-Other presets: `fly-in`/`fly-out`, and `slide-in`/`slide-out` with `direction = "left"`, `"right"`, `"up"` or `"down"`. Wobbly windows need compiz, which is a window manager itself and cannot run next to hellxcb.
+Other presets: `fly-in`/`fly-out`, and `slide-in`/`slide-out` with `direction = "left"`, `"right"`, `"up"` or `"down"`.
+Wobbly windows need compiz, which is a window manager itself and cannot run next to hellxcb.
 
-The packages needed for example would be
-`libxcb` `libxcb-shape` `xcb-util-keysyms` `gcc` `make` `xorg` [ `pkg-config` or `pkgconfig`or `pkgconf` ]
+## Testing
 
-The packages in Debian are: `gcc` `make` `pkg-config` `git` `libxcb1-dev` `libxcb-keysyms1-dev` `libxcb-shape0-dev` `x11proto-dev`, and `xorg` to run it
+The smoke test runs on a virtual X server and needs `Xvfb`, `xdotool`, `xterm` and `xwininfo`:
 
-For FreeBSD the packages are `gcc` `xorg` `gmake` `chromium` `git` `gawk` `libxcb` `xcb-util-keysyms` `pkgconf`
+```sh
+make check                          # run the smoke test
+SMOKE_DISPLAY=:98 make check        # use another display
+sh tests/repeat.sh 20               # run it 20 times, stop at the first failure or hang
+sh tests/bench.sh ./hellxcb /path/to/other/hellxcb   # compare the speed of builds (needs gcc)
+```
 
-For NetBSD the packages are `clang` `gmake` `firefox` `git` `gawk` `xcb` `xcb-util-keysyms` `pkg-config` and **full desktop with X11** installed on your system.
-
-Bugs
-----
-
-I have fixed - https://github.com/Cloudef/monsterwm-xcb/issues/8 . An open dialog keeps the focus while the mouse moves over other windows, until it is closed.
-
-Fill bugs only on hellxcb, when you are sure the bug doesn't occur on [monsterwm][].
-
-[monsterwm issues][monsterwm-bug]
-
-   [monsterwm-bug]: https://github.com/c00kiemon5ter/monsterwm/issues
-   [monsterwm-xcb-bug]: https://github.com/Cloudef/monsterwm-xcb/issues
-
-Thanks
-------
+## Thanks
 
 [Cloudef](https://github.com/Cloudef) for [monsterwm-xcb](https://github.com/Cloudef/monsterwm-xcb),
 [the suckless team][skls] for [dwm][],
 [moetunes][] for [dminiwm][],
 [pyknite][] for [catwm][],
-[c00kiemonster][cookiemonster] for [monsterwm][]
+[c00kiemonster][cookiemonster] for [monsterwm][],
+[lasers][] for fixes and cleanups
 
   [skls]: http://suckless.org/
   [dwm]:  http://dwm.suckless.org/
@@ -99,3 +136,4 @@ Thanks
   [monsterwm]: https://github.com/c00kiemon5ter/monsterwm
   [cookiemonster]: https://github.com/c00kiemon5ter
   [monsterwm-xcb]: https://github.com/Cloudef/monsterwm-xcb
+  [lasers]: https://github.com/lasers
