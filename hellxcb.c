@@ -112,6 +112,7 @@ typedef struct {
 typedef struct client {
     struct client *next;
     bool isurgent, istransient, isfullscrn, isfloating;
+    int shaped[3]; /* width, height and border round_corners() last cut the window to */
     xcb_window_t win;
 } client;
 
@@ -210,6 +211,7 @@ static xcb_screen_t *screen;
 static xcb_key_symbols_t *keysyms; /* keyboard map, refreshed on MappingNotify */
 static client *head, *prevfocus, *current;
 static xcb_window_t dropdown_win = XCB_WINDOW_NONE; /* the drop-down terminal, not a client */
+static int dropdown_shaped[3]; /* as client.shaped */
 static bool dropdown_shown = false;
 
 static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
@@ -471,8 +473,13 @@ static void round_corners(xcb_window_t win, int w, int h, int bw) {
 /* a window changed size or border: round its corners again */
 void configurenotify(xcb_generic_event_t *e) {
     xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t*)e;
-    if (ev->window == dropdown_win || wintoclient(ev->window))
-        round_corners(ev->window, ev->width, ev->height, ev->border_width);
+    client *c = wintoclient(ev->window);
+    int *s = c ? c->shaped : ev->window == dropdown_win ? dropdown_shaped : NULL;
+    /* restacking on every focus change sends a ConfigureNotify too: reshape only on a new size or
+     * border, a reshape also makes the server look again for the window under the pointer */
+    if (!s || (s[0] == ev->width && s[1] == ev->height && s[2] == ev->border_width)) return;
+    s[0] = ev->width; s[1] = ev->height; s[2] = ev->border_width;
+    round_corners(ev->window, ev->width, ev->height, ev->border_width);
 }
 
 /* cycle thru all of the tiling modes and reset all floating windows */
@@ -525,7 +532,10 @@ void destroynotify(xcb_generic_event_t *e) {
     xcb_destroy_notify_event_t *ev = (xcb_destroy_notify_event_t*)e;
     client *c = wintoclient(ev->window);
     if (c) { removeclient(c); desktopinfo(); }
-    else if (ev->window == dropdown_win) { dropdown_win = XCB_WINDOW_NONE; dropdown_shown = false; update_current(current); }
+    else if (ev->window == dropdown_win) {
+        dropdown_win = XCB_WINDOW_NONE; dropdown_shown = false; memset(dropdown_shaped, 0, sizeof dropdown_shaped);
+        update_current(current);
+    }
 }
 
 /* show or hide the drop-down terminal, start it the first time
