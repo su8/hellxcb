@@ -517,10 +517,9 @@ void desktopinfo(void) {
     int n[DESKTOPS] = {0};
     FILE *fp = NULL;
     static char path[4096];
-    if (!*path) { /* an absolute path in config.h, as in older ones, is used as it is */
+    if (!*path) {
         const char *dir = getenv("XDG_RUNTIME_DIR"); /* private to the user, /tmp is shared */
-        if (HELLXCB_TAG_AND_MODE[0] == '/') snprintf(path, sizeof path, "%s", HELLXCB_TAG_AND_MODE);
-        else snprintf(path, sizeof path, "%s/%s", dir && *dir ? dir : "/tmp", HELLXCB_TAG_AND_MODE);
+        snprintf(path, sizeof path, "%s/%s", dir && *dir ? dir : "/tmp", HELLXCB_TAG_AND_MODE);
     }
     save_desktop(current_desktop);
     for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) n[d]++;
