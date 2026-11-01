@@ -41,7 +41,6 @@ MA 02110-1301, USA.
 #define ShiftMask    XCB_MOD_MASK_SHIFT
 #define ControlMask  XCB_MOD_MASK_CONTROL
 #define Button1      XCB_BUTTON_INDEX_1
-#define Button2      XCB_BUTTON_INDEX_2
 #define Button3      XCB_BUTTON_INDEX_3
 #define XCB_MOVE_RESIZE XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
 #define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
@@ -189,7 +188,7 @@ static void run(void);
 static void save_desktop(int i);
 static void select_desktop(int i);
 static void setfullscreen(client *c, bool fullscrn);
-static int setup(int default_screen);
+static void setup(int default_screen);
 static void spawn(const Arg *arg);
 static void stack(int h, int y);
 static void swap_master(const Arg *arg);
@@ -273,13 +272,6 @@ static inline void xcb_border_width(xcb_connection_t *con, xcb_window_t win, int
     xcb_configure_window(con, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, arg);
 }
 
-/* retieve RGB color from hex (think of html) */
-static unsigned int xcb_get_colorpixel(const char *hex) {
-    char strgroups[3][3]  = {{hex[1], hex[2], '\0'}, {hex[3], hex[4], '\0'}, {hex[5], hex[6], '\0'}};
-    unsigned int rgb16[3] = {(unsigned int)strtoul(strgroups[0], NULL, 16), (unsigned int)strtoul(strgroups[1], NULL, 16), (unsigned int)strtoul(strgroups[2], NULL, 16)};
-    return (rgb16[0] << 16) + (rgb16[1] << 8) + rgb16[2];
-}
-
 /* wrapper to get atoms using xcb */
 static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int count) {
     xcb_intern_atom_cookie_t cookies[count];
@@ -291,13 +283,6 @@ static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int co
         if (reply) { atoms[i] = reply->atom; free(reply); }
         else warnx("failed to register %s atom, things might not work right", names[i]);
     }
-}
-
-/* wrapper to window get attributes using xcb */
-static void xcb_get_attributes(xcb_window_t *windows, xcb_get_window_attributes_reply_t **reply, unsigned int count) {
-    xcb_get_window_attributes_cookie_t cookies[count];
-    for (unsigned int i = 0; i < count; i++) cookies[i] = xcb_get_window_attributes(dis, windows[i]);
-    for (unsigned int i = 0; i < count; i++) reply[i]   = xcb_get_window_attributes_reply(dis, cookies[i], NULL); /* TODO: Handle error */
 }
 
 /* check if other wm exists */
@@ -500,7 +485,6 @@ void deletewindow(xcb_window_t w) {
     ev.response_type = XCB_CLIENT_MESSAGE;
     ev.window = w;
     ev.format = 32;
-    ev.sequence = 0;
     ev.type = wmatoms[WM_PROTOCOLS];
     ev.data.data32[0] = wmatoms[WM_DELETE_WINDOW];
     ev.data.data32[1] = XCB_CURRENT_TIME;
@@ -579,13 +563,9 @@ void focusurgent(const Arg *arg) {
 /* get a pixel with the requested color
  * to fill some window area - borders */
 unsigned int getcolor(const char *color) {
-    xcb_colormap_t map = screen->default_colormap;
-    xcb_alloc_color_reply_t *c;
-    unsigned int r, g, b, rgb, pixel;
-
-    rgb = xcb_get_colorpixel(color);
-    r = rgb >> 16; g = rgb >> 8 & 0xFF; b = rgb & 0xFF;
-    c = xcb_alloc_color_reply(dis, xcb_alloc_color(dis, map, (uint16_t)(r * 257), (uint16_t)(g * 257), (uint16_t)(b * 257)), NULL);
+    unsigned int rgb = (unsigned int)strtoul(color + 1, NULL, 16), r = rgb >> 16, g = rgb >> 8 & 0xFF, b = rgb & 0xFF, pixel;
+    xcb_alloc_color_reply_t *c = xcb_alloc_color_reply(dis, xcb_alloc_color(dis, screen->default_colormap,
+                                     (uint16_t)(r * 257), (uint16_t)(g * 257), (uint16_t)(b * 257)), NULL);
     if (!c)
         errx(EXIT_FAILURE, "error: cannot allocate color '%s'\n", color);
 
@@ -690,14 +670,13 @@ void mappingnotify(xcb_generic_event_t *e) {
  */
 void maprequest(xcb_generic_event_t *e) {
     xcb_map_request_event_t            *ev = (xcb_map_request_event_t*)e;
-    xcb_window_t                       windows[] = { ev->window }, transient = 0;
-    xcb_get_window_attributes_reply_t  *attr[1];
+    xcb_window_t                       transient = 0;
+    xcb_get_window_attributes_reply_t  *attr = xcb_get_window_attributes_reply(dis, xcb_get_window_attributes(dis, ev->window), NULL);
     xcb_icccm_get_wm_class_reply_t     ch;
     xcb_get_property_reply_t           *prop_reply;
 
-    xcb_get_attributes(windows, attr, 1);
-    bool unmanaged = !attr[0] || attr[0]->override_redirect;
-    free(attr[0]);
+    bool unmanaged = !attr || attr->override_redirect;
+    free(attr);
     if (unmanaged) return;
     if (wintoclient(ev->window)) return;
 
@@ -1082,7 +1061,7 @@ int setup_keyboard(void)
  * set masks for reporting events handled by the wm
  * and propagate the suported net atoms
  */
-int setup(int default_screen) {
+void setup(int default_screen) {
     if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) err(EXIT_FAILURE, "cannot ignore SIGCHLD"); /* children are reaped by the kernel */
     screen = xcb_screen_of_display(dis, default_screen);
     if (!screen) err(EXIT_FAILURE, "error: cannot aquire screen\n");
@@ -1125,7 +1104,6 @@ int setup(int default_screen) {
     events[XCB_UNMAP_NOTIFY]        = unmapnotify;
 
     change_desktop(&(Arg){.i = DEFAULT_DESKTOP});
-    return 0;
 }
 
 /* execute a command */
@@ -1327,10 +1305,9 @@ int main(int argc, char *argv[]) {
     } else if (argc != 1) errx(EXIT_FAILURE, "%s", USAGE);
     if (xcb_connection_has_error((dis = xcb_connect(NULL, &default_screen))))
         errx(EXIT_FAILURE, "error: cannot open display\n");
-    if (setup(default_screen) != -1) {
-      desktopinfo();
-      run();
-    }
+    setup(default_screen);
+    desktopinfo();
+    run();
     cleanup();
     xcb_disconnect(dis);
     return retval;
