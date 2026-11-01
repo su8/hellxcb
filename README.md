@@ -18,7 +18,7 @@ and edit to suit your needs.
 Build and install.
 
     $ $EDITOR_OF_CHOICE config.h
-    $ make -j8 # where 8 are CPU cores
+    $ make
     # make install
 
 To have mouse cursor, open up `.xinitrc` and append somewhere before the `case` label the following `xsetroot -cursor_name left_ptr`
@@ -63,7 +63,7 @@ Other presets: `fly-in`/`fly-out`, and `slide-in`/`slide-out` with `direction = 
 The packages needed for example would be
 `libxcb` `libxcb-shape` `xcb-util` `xcb-util-wm` `xcb-util-keysym` `gcc` `make` `xorg` [ `pkg-config` or `pkgconfig`or `pkgconf` ]
 
-The packages in Debian are: `libxcb-shape0` `libxcb-shape0-dev` `libxcb-randr0` `libxcb-randr0-dev` `libxcb-ewmh` `libxcb-ewmh2` `xorg-dev` `xserver-xorg-dev` `libxcb-icccm4` `libxcb-icccm4-dev` `gcc` `make` `xorg` `pkg-config` `git` `libxcb-keysyms1` `libxcb-keysyms1-dev` `libxcb-util-wm` `libxcb-util-dev` `xcb-util` `libxcb1-deb` `libxcb-dev`
+The packages in Debian are: `gcc` `make` `pkg-config` `git` `libxcb1-dev` `libxcb-icccm4-dev` `libxcb-keysyms1-dev` `libxcb-shape0-dev` `x11proto-dev`, and `xorg` to run it
 
 For FreeBSD the packages are `gcc` `xorg` `gmake` `chromium` `git` `gawk` `libxcb` `xcb-util` `xcb-util-wm` `xcb-util-keysyms` `pkgconf`
 
