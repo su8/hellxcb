@@ -27,7 +27,6 @@ MA 02110-1301, USA.
 #include <signal.h>
 #include <X11/keysym.h>
 #include <xcb/xcb.h>
-#include <xcb/xcb_atom.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
 #include <xcb/shape.h>
