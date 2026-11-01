@@ -967,9 +967,13 @@ void removeclient(client *c) {
         for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
     *p = c->next;
     if (c == prevfocus) prevfocus = prev_client(current);
-    if (c == current || !head || !head->next) update_current(prevfocus);
-    free(c); c = NULL;
-    if (cd == nd -1) tile(); else select_desktop(cd);
+    if (cd == nd - 1) {
+        if (c == current || !head || !head->next) update_current(prevfocus); else tile();
+    } else { /* a hidden desktop: only its focus, update_current() would focus a hidden window */
+        if (c == current || !head || !head->next) prevfocus = prev_client(current = prevfocus ? prevfocus : head);
+        select_desktop(cd);
+    }
+    free(c);
 }
 
 /* resize the master window - check for boundary size limits

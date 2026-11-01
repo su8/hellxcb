@@ -149,6 +149,13 @@ xdotool key super+z; sleep 0.5
 expect "Super+z shows it again" "$(xdotool search --onlyvisible --class hellxcb-dropdown)" "$D"
 # its process exits: hellxcb forgets the window and must not crash on it
 pkill -f "class hellxcb-dropdown"; sleep 0.5; check "the drop-down terminal exits"
+
+# config.h sends MPlayer to desktop 4 and follows it; closing it there must leave this desktop's active window
+A=$(xdotool getactivewindow)
+xterm -class MPlayer & P3=$!; sleep 1.5
+xdotool key alt+1; sleep 0.5
+kill $P3; sleep 0.8
+expect "a window closing on a hidden desktop keeps the active window" "$(xdotool getactivewindow 2>/dev/null)" "$A"
 kill $P1 $P2
 
 exit $fail
