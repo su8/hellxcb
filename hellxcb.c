@@ -1315,13 +1315,10 @@ void update_current(client *c) {
 
 /* find to which client the given window belongs to */
 client* wintoclient(xcb_window_t w) {
-    client *c = NULL;
-    int d = 0, cd = current_desktop;
-    for (bool found = false; d<DESKTOPS && !found; ++d)
-        for (select_desktop(d), c=head; c && !(found = (w == c->win)); c=c->next);
-
-    if (cd != d-1) select_desktop(cd);
-    return c;
+    save_desktop(current_desktop); /* the shown desktop's list lives in the globals */
+    for (int d = 0; d < DESKTOPS; d++)
+        for (client *c = desktops[d].head; c; c = c->next) if (c->win == w) return c;
+    return NULL;
 }
 
 int main(int argc, char *argv[]) {
