@@ -828,14 +828,16 @@ void mousemotion(const Arg *arg) {
 
     xcb_generic_event_t *e = NULL;
     xcb_motion_notify_event_t *ev = NULL;
+    xcb_window_t win = current->win;
     bool ungrab = false;
     do {
         if (e) free(e);
         xcb_flush(dis);
-        while(!(e = xcb_wait_for_event(dis))) xcb_flush(dis);
+        if (!(e = xcb_wait_for_event(dis))) err(EXIT_FAILURE, "error: X11 connection got interrupted\n");
         switch (e->response_type & ~0x80) {
-            case XCB_CONFIGURE_REQUEST: case XCB_MAP_REQUEST:
+            case XCB_CONFIGURE_REQUEST: case XCB_MAP_REQUEST: case XCB_DESTROY_NOTIFY: case XCB_UNMAP_NOTIFY:
                 events[e->response_type & ~0x80](e);
+                ungrab = !current || current->win != win; /* the window went away or a new one took the focus */
                 break;
             case XCB_MOTION_NOTIFY:
             {
