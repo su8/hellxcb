@@ -425,8 +425,7 @@ void clientmessage(xcb_generic_event_t *e) {
           ||  (unsigned)ev->data.data32[2] == netatoms[NET_FULLSCREEN]))
         setfullscreen(c, (ev->data.data32[0] == 1 || (ev->data.data32[0] == 2 && !c->isfullscrn)));
     else if (c && ev->type == netatoms[NET_ACTIVE]) for (t=head; t && t!=c; t=t->next);
-    if (t) update_current(c);
-    tile();
+    if (t) update_current(c); /* setfullscreen() and update_current() tile, nothing else changed */
 }
 
 /* a configure request means that the window requested changes in its geometry
