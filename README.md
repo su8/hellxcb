@@ -89,7 +89,7 @@ The default bindings start `xterm` and `dmenu_run`: install them, or set `termcm
 hellxcb has no bar of its own; the one in the picture above is [doomy](https://github.com/su8/doomy).
 It leaves `PANEL_HEIGHT` pixels free at the top for one (`TOP_PANEL False` for the bottom).
 Whenever the desktop, mode or windows change, it writes a line like this to `$XDG_RUNTIME_DIR/hellxcb.txt`
-(`/tmp/hellxcb.txt` when it is not set, or the absolute path you give `HELLXCB_TAG_AND_MODE` in `config.h`):
+(`/tmp/hellxcb.txt` when it is not set):
 
 ```
 [tag: 1] [mode: tile] [windows: 2] [tag 1 win: 2] [tag 2 win: 0] [tag 3 win: 1] [tag 4 win: 0]

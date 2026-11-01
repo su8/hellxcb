@@ -46,7 +46,7 @@ MA 02110-1301, USA.
 #define DESKTOPS        4         /* number of desktops - edit DESKTOPCHANGE keys to suit */
 #define DEFAULT_DESKTOP 0         /* the desktop to focus on exec */
 #define MINWSZ          50        /* minimum window size in pixels */
-#define HELLXCB_TAG_AND_MODE "hellxcb.txt" /* status file in $XDG_RUNTIME_DIR (/tmp without it), or an absolute path: current desktop, mode, window counts */
+#define HELLXCB_TAG_AND_MODE "hellxcb.txt" /* status file in $XDG_RUNTIME_DIR (/tmp without it): current desktop, mode, window counts */
 
 /* open applications to specified desktop with specified mode.
  * if desktop is negative, then current is assumed */
