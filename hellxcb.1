@@ -38,8 +38,13 @@ hellxcb provides information to the status bar or panel of choice via text.
 Whenever the desktop, the mode or the windows change, it writes one line to
 the file HELLXCB_TAG_AND_MODE in
 .I config.h
+in
+.B $XDG_RUNTIME_DIR
 (default
-.IR /tmp/hellxcb.txt ),
+.IR $XDG_RUNTIME_DIR/hellxcb.txt ,
+or
+.I /tmp/hellxcb.txt
+when it is not set),
 for example:
 .P
 .nf

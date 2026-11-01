@@ -497,16 +497,22 @@ void deletewindow(xcb_window_t w) {
 }
 
 /* write the current desktop, its mode and the window count of every desktop
- * to HELLXCB_TAG_AND_MODE, e.g. for a status bar */
+ * to HELLXCB_TAG_AND_MODE in $XDG_RUNTIME_DIR, e.g. for a status bar */
 void desktopinfo(void) {
     static const char *modes[] = { "tile", "bstack", "grid", "float" };
     int n[DESKTOPS] = {0};
     FILE *fp = NULL;
+    static char path[4096];
+    if (!*path) { /* an absolute path in config.h, as in older ones, is used as it is */
+        const char *dir = getenv("XDG_RUNTIME_DIR"); /* private to the user, /tmp is shared */
+        if (HELLXCB_TAG_AND_MODE[0] == '/') snprintf(path, sizeof path, "%s", HELLXCB_TAG_AND_MODE);
+        else snprintf(path, sizeof path, "%s/%s", dir && *dir ? dir : "/tmp", HELLXCB_TAG_AND_MODE);
+    }
     save_desktop(current_desktop);
     for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) n[d]++;
-    /* O_NOFOLLOW: the file is in a shared /tmp, never write through a symlink planted there */
-    int fd = open(HELLXCB_TAG_AND_MODE, O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW, 0644);
-    if (fd < 0 || !(fp = fdopen(fd, "w"))) { warn("cannot write %s", HELLXCB_TAG_AND_MODE); if (fd >= 0) close(fd); return; }
+    /* O_NOFOLLOW: in a shared /tmp, never write through a symlink planted there */
+    int fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW, 0644);
+    if (fd < 0 || !(fp = fdopen(fd, "w"))) { warn("cannot write %s", path); if (fd >= 0) close(fd); return; }
     fprintf(fp, "[tag: %d] [mode: %s] [windows: %d]", current_desktop + 1, modes[mode], n[current_desktop]);
     for (int d = 0; d < DESKTOPS; d++) fprintf(fp, " [tag %d win: %d]", d + 1, n[d]);
     fclose(fp);

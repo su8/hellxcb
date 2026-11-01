@@ -6,10 +6,12 @@
 set -u
 WMBIN=${1:-./hellxcb}
 export DISPLAY=${SMOKE_DISPLAY:-:99} # another display: SMOKE_DISPLAY=:98 make check
+export XDG_RUNTIME_DIR=$(mktemp -d) # a status file of our own, even next to another hellxcb
+STATUS=$XDG_RUNTIME_DIR/hellxcb.txt
 Xvfb "$DISPLAY" -screen 0 800x600x24 >/dev/null 2>&1 & XPID=$!
 sleep 1
 "$WMBIN" & WM=$!
-trap 'kill $WM $XPID 2>/dev/null' EXIT
+trap 'kill $WM $XPID 2>/dev/null; rm -rf "$XDG_RUNTIME_DIR"' EXIT
 sleep 1
 fail=0
 
@@ -35,7 +37,7 @@ pkill -x xterm; sleep 0.5
 [ $R = 0 ] || { kill -9 "$WM"; "$WMBIN" & WM=$!; sleep 1; }  # a hung WM would fail every test below
 
 # tag: the current desktop number from the status file
-tag() { sed -n 's/^\[tag: \([0-9]*\)\].*/\1/p' /tmp/hellxcb.txt; }
+tag() { sed -n 's/^\[tag: \([0-9]*\)\].*/\1/p' "$STATUS"; }
 
 # list operations on an empty desktop used to dereference NULL
 xdotool key alt+shift+j;               check "move_down on an empty desktop"
@@ -63,7 +65,7 @@ kill $P1 $P2; sleep 0.5
 xdotool key alt+shift+t
 # from tile, cycle_mode (Alt+Shift+y) goes to bstack
 xdotool key alt+shift+y; sleep 0.3
-expect "cycle_mode goes to the next mode" "$(sed -n 's/.*\[mode: \([a-z]*\)\].*/\1/p' /tmp/hellxcb.txt)" bstack
+expect "cycle_mode goes to the next mode" "$(sed -n 's/.*\[mode: \([a-z]*\)\].*/\1/p' "$STATUS")" bstack
 xdotool key alt+shift+t
 
 # FLOAT mode: a new window keeps its own size; dragging it there must not mark it
@@ -97,7 +99,7 @@ kill $P1 $P2; sleep 0.5
 # status file, borders, Alt+drag and Alt+c with two windows
 xterm & P1=$!; xterm & P2=$!; sleep 1.5
 # count: the window count of desktop 1 from the status file
-count() { grep -o '\[tag 1 win: [0-9]*\]' /tmp/hellxcb.txt; }
+count() { grep -o '\[tag 1 win: [0-9]*\]' "$STATUS"; }
 expect "status file counts the windows" "$(count)" "[tag 1 win: 2]"
 W=$(xdotool search --onlyvisible --class XTerm | head -1)
 expect "border width is BORDER_WIDTH" "$(xwininfo -id "$W" | sed -n 's/.*Border width: //p')" 2
