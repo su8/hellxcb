@@ -307,8 +307,7 @@ static bool hasatom(xcb_window_t w, xcb_atom_t prop, xcb_atom_t atom) {
 /* check if other wm exists */
 static int xcb_checkotherwm(void) {
     xcb_generic_error_t *error;
-    unsigned int values[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT|XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY|
-                              XCB_EVENT_MASK_PROPERTY_CHANGE|XCB_EVENT_MASK_BUTTON_PRESS};
+    unsigned int values[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT|XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
     error = xcb_request_check(dis, xcb_change_window_attributes_checked(dis, screen->root, XCB_CW_EVENT_MASK, values));
     xcb_flush(dis);
     if (error) return 1;
