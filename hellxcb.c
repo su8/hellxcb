@@ -212,6 +212,7 @@ static xcb_key_symbols_t *keysyms; /* keyboard map, refreshed on MappingNotify *
 static client *head, *prevfocus, *current;
 static xcb_window_t dropdown_win = XCB_WINDOW_NONE; /* the drop-down terminal, not a client */
 static int dropdown_shaped[3]; /* as client.shaped */
+static uint16_t restack_seq; /* sequence number of our last restack request, see enternotify() */
 static bool dropdown_shown = false;
 
 static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
@@ -563,6 +564,10 @@ void dropdown(const Arg *arg) {
 void enternotify(xcb_generic_event_t *e) {
     xcb_enter_notify_event_t *ev = (xcb_enter_notify_event_t*)e;
     if (!FOLLOW_MOUSE) return;
+    /* an event stamped with our last restack or an older request was caused by a restack, not by
+     * the mouse: following it raises that window, and with two windows on top of each other under
+     * the pointer the next restack makes the other one enter, forever */
+    if ((int16_t)(ev->sequence - restack_seq) <= 0) return;
     client *c = wintoclient(ev->event);
     if (c && ev->mode == XCB_NOTIFY_MODE_NORMAL && ev->detail != XCB_NOTIFY_DETAIL_INFERIOR && !dropdown_shown
           && !(current && current->istransient)) update_current(c); /* an open dialog keeps the focus */
@@ -1291,10 +1296,11 @@ void update_current(client *c) {
     /* restack */
     /* top down, each window right below the one before: no window ever passes over
      * the current one, so the pointer gets no enter event that would move the focus */
-    xcb_raise_window(dis, w[0]);
+    uint32_t above = XCB_STACK_MODE_ABOVE;
+    restack_seq = (uint16_t)xcb_configure_window(dis, w[0], XCB_CONFIG_WINDOW_STACK_MODE, &above).sequence;
     for (int i = 1; i < count; i++) {
         uint32_t v[2] = { w[i-1], XCB_STACK_MODE_BELOW };
-        xcb_configure_window(dis, w[i], XCB_CONFIG_WINDOW_SIBLING|XCB_CONFIG_WINDOW_STACK_MODE, v);
+        restack_seq = (uint16_t)xcb_configure_window(dis, w[i], XCB_CONFIG_WINDOW_SIBLING|XCB_CONFIG_WINDOW_STACK_MODE, v).sequence;
     }
 
     xcb_change_property(dis, XCB_PROP_MODE_REPLACE, screen->root, netatoms[NET_ACTIVE], XCB_ATOM_WINDOW, 32, 1, &current->win);
