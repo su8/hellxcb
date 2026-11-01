@@ -293,6 +293,17 @@ static xcb_get_property_reply_t *getprop(xcb_window_t w, xcb_atom_t prop, xcb_at
     return r;
 }
 
+/* does the ATOM list property prop of window w contain atom */
+static bool hasatom(xcb_window_t w, xcb_atom_t prop, xcb_atom_t atom) {
+    bool found = false;
+    xcb_get_property_reply_t *p = getprop(w, prop, XCB_ATOM_ATOM, 32, 32);
+    if (!p) return false;
+    xcb_atom_t *a = xcb_get_property_value(p);
+    for (unsigned int n = 0; n < p->value_len && !found; n++) found = a[n] == atom;
+    free(p);
+    return found;
+}
+
 /* check if other wm exists */
 static int xcb_checkotherwm(void) {
     xcb_generic_error_t *error;
@@ -657,14 +668,10 @@ void keypress(xcb_generic_event_t *e) {
 void killclient(const Arg *arg) {
     (void)arg;
     if (!current) return;
-    bool got = false;
-    xcb_get_property_reply_t *p = getprop(current->win, wmatoms[WM_PROTOCOLS], XCB_ATOM_ATOM, 32, 32);
-    if (p) {
-        xcb_atom_t *a = xcb_get_property_value(p);
-        for (unsigned int n = 0; n < p->value_len && !got; n++) got = a[n] == wmatoms[WM_DELETE_WINDOW];
-        free(p);
+    if (hasatom(current->win, wmatoms[WM_PROTOCOLS], wmatoms[WM_DELETE_WINDOW])) {
+        deletewindow(current->win); /* destroynotify() removes it, unless it refuses, e.g. "save changes?" */
+        return;
     }
-    if (got) { deletewindow(current->win); return; } /* destroynotify() removes it, unless it refuses, e.g. "save changes?" */
     xcb_kill_client(dis, current->win);
     removeclient(current);
     desktopinfo();
@@ -732,10 +739,7 @@ void maprequest(xcb_generic_event_t *e) {
     free(p);
     c->isfloating  = floating || c->istransient;
 
-    if ((p = getprop(ev->window, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, 1))) { /* empty after we unset fullscreen */
-        setfullscreen(c, *(xcb_atom_t *)xcb_get_property_value(p) == netatoms[NET_FULLSCREEN]);
-        free(p);
-    }
+    if (hasatom(ev->window, netatoms[NET_WM_STATE], netatoms[NET_FULLSCREEN])) setfullscreen(c, true);
 
     if (cd != newdsk) select_desktop(cd);
     if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
