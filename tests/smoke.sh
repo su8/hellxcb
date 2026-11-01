@@ -130,6 +130,13 @@ xterm & P2=$!; sleep 2
 xdotool key alt+BackSpace; sleep 0.5
 expect "Alt+BackSpace focuses the urgent window" "$(xdotool getactivewindow)" "$U"
 
+# Super+right-click starts the menu: the button grab must not leave the pointer frozen
+xdotool mousemove --window "$U" 30 30 keydown super click 3 keyup super; sleep 0.5
+pkill -x dmenu 2>/dev/null # it would take the keyboard from the tests below
+N=$(xdotool search --onlyvisible --class XTerm | grep -vx "$U" | head -1)
+xdotool mousemove --window "$N" 30 30; sleep 0.5
+expect "the mouse still moves the focus after Super+right-click" "$(xdotool getactivewindow)" "$N"
+
 # the drop-down terminal (Super+z) is not a client: wide, focused, and not counted
 xdotool key super+z; sleep 1.5
 D=$(xdotool search --onlyvisible --class hellxcb-dropdown | head -1)

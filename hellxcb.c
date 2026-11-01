@@ -325,20 +325,18 @@ void buttonpress(xcb_generic_event_t *e) {
     xcb_button_press_event_t *ev = (xcb_button_press_event_t*)e;
 
     client *c = wintoclient(ev->event);
-    if (!c) return;
-    if (CLICK_TO_FOCUS && current != c && ev->detail == XCB_BUTTON_INDEX_1) update_current(c);
+    if (c && CLICK_TO_FOCUS && current != c && ev->detail == XCB_BUTTON_INDEX_1) update_current(c);
 
-    for (unsigned int i=0; i<LENGTH(buttons); i++)
+    for (unsigned int i=0; c && i<LENGTH(buttons); i++)
         if (buttons[i].func && buttons[i].button == ev->detail &&
             CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state)) {
             if (current != c) update_current(c);
             buttons[i].func(&(buttons[i].arg));
         }
 
-    if (CLICK_TO_FOCUS) {
-        xcb_allow_events(dis, XCB_ALLOW_REPLAY_POINTER, ev->time);
-        xcb_flush(dis);
-    }
+    /* the button grabs are sync, so a drag starts before the pointer moves on: thaw it now,
+     * else it stays frozen after a binding that does not grab it, e.g. the Super+right-click menu */
+    xcb_allow_events(dis, CLICK_TO_FOCUS ? XCB_ALLOW_REPLAY_POINTER : XCB_ALLOW_ASYNC_POINTER, ev->time);
 }
 
 /* focus another desktop
