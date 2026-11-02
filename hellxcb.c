@@ -965,6 +965,7 @@ void removeclient(client *c) {
     int nd = 0, cd = current_desktop;
     for (bool found = false; nd<DESKTOPS && !found; nd++)
         for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
+    if (!found) return;
     *p = c->next;
     if (c == prevfocus) prevfocus = prev_client(current);
     if (cd == nd - 1) {
@@ -1132,6 +1133,7 @@ void setup(int default_screen) {
 
 /* execute a command */
 void spawn(const Arg *arg) {
+    if (!arg->com || !arg->com[0]) return;
     pid_t pid = fork();
     if (pid < 0) warn("cannot run %s", arg->com[0]);
     if (pid) return;
@@ -1314,7 +1316,6 @@ void update_current(client *c) {
 
 /* find to which client the given window belongs to */
 client* wintoclient(xcb_window_t w) {
-    save_desktop(current_desktop); /* the shown desktop's list lives in the globals */
     for (int d = 0; d < DESKTOPS; d++)
         for (client *c = desktops[d].head; c; c = c->next) if (c->win == w) return c;
     return NULL;
