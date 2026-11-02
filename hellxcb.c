@@ -197,10 +197,6 @@ static client* wintoclient(xcb_window_t w);
 
 #include "config.h"
 
-#define head        (desktops[current_desktop].head)
-#define current     (desktops[current_desktop].current)
-#define prevfocus   (desktops[current_desktop].prevfocus)
-
 /* variables */
 static bool running = true, showpanel = SHOW_PANEL;
 static int previous_desktop = 0, current_desktop = 0, retval = 0;
@@ -218,6 +214,9 @@ static bool dropdown_shown = false;
 
 static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
 static desktop desktops[DESKTOPS];
+#define head        (desktops[current_desktop].head)
+#define current     (desktops[current_desktop].current)
+#define prevfocus   (desktops[current_desktop].prevfocus)
 
 /* events array
  * on receival of a new event, call the appropriate function to handle it
