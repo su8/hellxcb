@@ -990,7 +990,8 @@ void resize_master(const Arg *arg) {
 
 /* resize the first stack window - no boundary checks */
 void resize_stack(const Arg *arg) {
-    growth += arg->i;
+    int z = mode == BSTACK ? wh : ww;
+    growth = MAX(-z + MINWSZ, MIN(z - MINWSZ, growth + arg->i));
     tile();
 }
 
