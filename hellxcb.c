@@ -524,7 +524,7 @@ void desktopinfo(void) {
         else snprintf(path, sizeof path, "%s/.cache/%s", home ? home : "", HELLXCB_TAG_AND_MODE);
     }
     save_desktop(current_desktop);
-    for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) { if (c->win == XCB_WINDOW_NONE) break; /* a canary: a poisoned slot */ n[d]++; }
+    for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) n[d]++;
     if (!(fp = fopen(path, "w"))) { warn("cannot write %s", path); return; }
     fprintf(fp, "[tag: %d] [mode: %s] [windows: %d]", current_desktop + 1, modes[mode], n[current_desktop]);
     for (int d = 0; d < DESKTOPS; d++) fprintf(fp, " [tag %d win: %d]", d + 1, n[d]);
@@ -961,48 +961,20 @@ void quit(const Arg *arg) {
  * if c was the previously focused, prevfocus must be updated
  * else if c was the current one, current must be updated. */
 void removeclient(client *c) {
-    if (!c) return;
-    int cd = current_desktop;
-
-    /* Find the desktop and the pointer-to-pointer to c, WITHOUT going through
-     * select_desktop(): the walk must not mutate the desktops[] slots. */
-    int owner = -1;
-    client **pp = NULL;
-    for (int d = 0; d < DESKTOPS && !pp; d++) {
-        client **q = &desktops[d].head;
-        while (*q && *q != c) q = &(*q)->next;
-        if (*q == c) { owner = d; pp = q; }
+    client **p = NULL;
+    int nd = 0, cd = current_desktop;
+    bool found = false;
+    for (; nd<DESKTOPS && !found; nd++)
+        for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
+    if (!found) return;
+    *p = c->next;
+    if (c == prevfocus) prevfocus = prev_client(current);
+    if (cd == nd - 1) {
+        if (c == current || !head || !head->next) update_current(prevfocus); else tile();
+    } else { /* a hidden desktop: only its focus, update_current() would focus a hidden window */
+        if (c == current || !head || !head->next) prevfocus = prev_client(current = prevfocus ? prevfocus : head);
+        select_desktop(cd);
     }
-    if (!pp) return;                    /* not in any list: defensive */
-    if (owner == cd) pp = &head;        /* the current desktop's head is the live global */
-
-    *pp = c->next;                      /* detach from the list */
-
-    /* Now update the bookkeeping for the desktop that owned c. */
-    client *h = (owner == cd) ? head : desktops[owner].head;
-    client *cur = (owner == cd) ? current : desktops[owner].current;
-    client *pf = (owner == cd) ? prevfocus : desktops[owner].prevfocus;
-
-    if (c == pf) pf = prev_client(h);
-    if (c == cur || !h || !h->next) {
-        /* The removed client was current, or the desktop is now empty/one-window:
-         * fall back to prevfocus (if it still belongs to this list) or head. */
-        if (!pf || pf == c) pf = h;
-        cur = pf;
-    }
-
-    if (owner == cd) {
-        current = cur;
-        prevfocus = pf;
-        update_current(current);        /* it tiles too */
-    } else {
-        /* Hidden desktop: store the new head/current/prevfocus in its slot,
-         * do NOT call update_current() — that would try to focus a hidden window. */
-        desktops[owner].head = h;
-        desktops[owner].current = cur;
-        desktops[owner].prevfocus = pf;
-    }
-
     free(c);
 }
 
