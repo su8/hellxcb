@@ -963,7 +963,8 @@ void quit(const Arg *arg) {
 void removeclient(client *c) {
     client **p = NULL;
     int nd = 0, cd = current_desktop;
-    for (bool found = false; nd<DESKTOPS && !found; nd++)
+    bool found = false;
+    for (; nd<DESKTOPS && !found; nd++)
         for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
     if (!found) return;
     *p = c->next;
