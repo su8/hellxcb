@@ -964,9 +964,10 @@ void removeclient(client *c) {
     client **p = NULL;
     int nd = 0, cd = current_desktop;
     bool found = false;
-    for (; nd<DESKTOPS && !found; nd++)
-        for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
-    if (!found) return;
+    for (; nd < DESKTOPS && !found; nd++)
+        for (p = &head; *p && !(found = (*p == c)); p = &(*p)->next)
+            select_desktop(nd);   /* actually: select_desktop goes before the inner for */
+    if (!found) return;           /* defensive */
     *p = c->next;
     if (c == prevfocus) prevfocus = prev_client(current);
     if (cd == nd - 1) {
