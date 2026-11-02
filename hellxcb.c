@@ -214,9 +214,6 @@ static bool dropdown_shown = false;
 
 static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
 static desktop desktops[DESKTOPS];
-#define head        (desktops[current_desktop].head)
-#define current     (desktops[current_desktop].current)
-#define prevfocus   (desktops[current_desktop].prevfocus)
 
 /* events array
  * on receival of a new event, call the appropriate function to handle it
@@ -964,25 +961,21 @@ void quit(const Arg *arg) {
  * if c was the previously focused, prevfocus must be updated
  * else if c was the current one, current must be updated. */
 void removeclient(client *c) {
-    if (!c) return;
-    for (int d = 0; d < DESKTOPS; d++) {
-        client **q = &desktops[d].head;
-        while (*q && *q != c) q = &(*q)->next;
-        if (*q != c) continue;
-        *q = c->next;
-        client *pf = desktops[d].prevfocus;
-        client *cu = desktops[d].current;
-        if (pf == c) pf = prev_client(desktops[d].head);
-        if (cu == c || !desktops[d].head || !desktops[d].head->next) {
-            if (!pf || pf == c) pf = desktops[d].head;
-            cu = pf;
-        }
-        desktops[d].current = cu;
-        desktops[d].prevfocus = pf;
-        if (d == current_desktop) update_current(cu);
-        free(c);
-        return;
+    client **p = NULL;
+    int nd = 0, cd = current_desktop;
+    bool found = false;
+    for (; nd<DESKTOPS && !found; nd++)
+        for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
+    if (!found) return;
+    *p = c->next;
+    if (c == prevfocus) prevfocus = prev_client(current);
+    if (cd == nd - 1) {
+        if (c == current || !head || !head->next) update_current(prevfocus); else tile();
+    } else { /* a hidden desktop: only its focus, update_current() would focus a hidden window */
+        if (c == current || !head || !head->next) prevfocus = prev_client(current = prevfocus ? prevfocus : head);
+        select_desktop(cd);
     }
+    free(c);
 }
 
 /* resize the master window - check for boundary size limits
