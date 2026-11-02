@@ -44,7 +44,8 @@ MA 02110-1301, USA.
 static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering the mouse around each window */
 
 static const char *WM_ATOM_NAME[]   = { "WM_PROTOCOLS", "WM_DELETE_WINDOW" };
-static const char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW" };
+static const char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE", "_NET_ACTIVE_WINDOW",
+                                        "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DOCK" };
 
 #define LENGTH(x) (sizeof(x)/sizeof(*x))
 #define MIN(a,b)  ((a) < (b) ? (a) : (b))
@@ -57,7 +58,7 @@ static const char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCR
 enum { RESIZE, MOVE };
 enum { TILE, BSTACK, GRID, FLOAT, MODES };
 enum { WM_PROTOCOLS, WM_DELETE_WINDOW, WM_COUNT };
-enum { NET_SUPPORTED, NET_FULLSCREEN, NET_WM_STATE, NET_ACTIVE, NET_COUNT };
+enum { NET_SUPPORTED, NET_FULLSCREEN, NET_WM_STATE, NET_ACTIVE, NET_WINDOW_TYPE, NET_DOCK, NET_COUNT };
 
 /* argument structure to be passed to function by config.h
  * com  - a command to run
@@ -432,19 +433,21 @@ void clientmessage(xcb_generic_event_t *e) {
 /* a configure request means that the window requested changes in its geometry
  * state. if the window is fullscreen discard and fill the screen else set the
  * appropriate values as requested, and tile the window again so that it fills
- * the gaps that otherwise could have been created
+ * the gaps that otherwise could have been created. a dock gets what it asks:
+ * it sits on the panel's place, not below it
  */
 void configurerequest(xcb_generic_event_t *e) {
     xcb_configure_request_event_t *ev = (xcb_configure_request_event_t*)e;
     client *c = wintoclient(ev->window);
+    bool dock = !c && hasatom(ev->window, netatoms[NET_WINDOW_TYPE], netatoms[NET_DOCK]);
     if (c && c->isfullscrn) setfullscreen(c, true);
     else {
         uint32_t v[7];
         unsigned int i = 0;
         if (ev->value_mask & XCB_CONFIG_WINDOW_X)              v[i++] = (uint32_t)ev->x;
-        if (ev->value_mask & XCB_CONFIG_WINDOW_Y)              v[i++] = (uint32_t)(ev->y + ((showpanel && TOP_PANEL) ? PANEL_HEIGHT : 0));
-        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = (uint32_t)MIN(ev->width,  ww - 2*BORDER_WIDTH);
-        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = (uint32_t)MIN(ev->height, wh - 2*BORDER_WIDTH);
+        if (ev->value_mask & XCB_CONFIG_WINDOW_Y)              v[i++] = (uint32_t)(ev->y + ((showpanel && TOP_PANEL && !dock) ? PANEL_HEIGHT : 0));
+        if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH)          v[i++] = dock ? ev->width  : (uint32_t)MIN(ev->width,  ww - 2*BORDER_WIDTH);
+        if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT)         v[i++] = dock ? ev->height : (uint32_t)MIN(ev->height, wh - 2*BORDER_WIDTH);
         if (ev->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH)   v[i++] = ev->border_width;
         if (ev->value_mask & XCB_CONFIG_WINDOW_SIBLING)        v[i++] = ev->sibling;
         if (ev->value_mask & XCB_CONFIG_WINDOW_STACK_MODE)     v[i++] = ev->stack_mode;
@@ -700,7 +703,9 @@ void mappingnotify(xcb_generic_event_t *e) {
 
 /* a map request is received when a window wants to display itself
  * if the window has override_redirect flag set then it should not be handled
- * by the wm. if the window already has a client then there is nothing to do.
+ * by the wm. a dock, such as a status bar, is shown where it asks, but not
+ * managed: not tiled, framed or focused. if the window already has a client
+ * then there is nothing to do.
  *
  * get the window class and name instance and try to match against an app rule.
  * create a client for the window, that client will always be current.
@@ -716,6 +721,7 @@ void maprequest(xcb_generic_event_t *e) {
     bool unmanaged = !attr || attr->override_redirect;
     free(attr);
     if (unmanaged) return;
+    if (hasatom(ev->window, netatoms[NET_WINDOW_TYPE], netatoms[NET_DOCK])) { xcb_map_window(dis, ev->window); return; }
     if (wintoclient(ev->window)) return;
 
     bool follow = false, floating = false;
