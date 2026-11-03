@@ -37,9 +37,9 @@ MA 02110-1301, USA.
 #define ControlMask  XCB_MOD_MASK_CONTROL
 #define Button1      XCB_BUTTON_INDEX_1
 #define Button3      XCB_BUTTON_INDEX_3
-#define XCB_MOVE_RESIZE XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
-#define XCB_MOVE        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y
-#define XCB_RESIZE      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT
+#define XCB_MOVE_RESIZE (XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT)
+#define XCB_MOVE        (XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y)
+#define XCB_RESIZE      (XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT)
 
 static unsigned int randomRGB[3] = {0U}; /* show different colour when hovering the mouse around each window */
 
@@ -49,8 +49,8 @@ static const char *NET_ATOM_NAME[]  = { "_NET_SUPPORTED", "_NET_WM_STATE_FULLSCR
 #define LENGTH(x) (sizeof(x)/sizeof(*x))
 #define MIN(a,b)  ((a) < (b) ? (a) : (b))
 #define MAX(a,b)  ((a) > (b) ? (a) : (b))
-#define CLEANMASK(mask) (mask & ~(numlockmask | XCB_MOD_MASK_LOCK))
-#define BUTTONMASK      XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_BUTTON_RELEASE
+#define CLEANMASK(mask) ((mask) & ~(numlockmask | XCB_MOD_MASK_LOCK))
+#define BUTTONMASK      (XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_BUTTON_RELEASE)
 #define ISFFT(c)        (c->isfullscrn || c->isfloating || c->istransient)
 #define USAGE           "usage: hellxcb [-h] [-v]"
 
@@ -195,6 +195,7 @@ static void update_current(client *c);
 static void unmapnotify(xcb_generic_event_t *e);
 static client* wintoclient(xcb_window_t w);
 static void toggle_float(const Arg *arg);
+static int setup_keyboard(void);
 
 #include "config.h"
 
@@ -355,7 +356,7 @@ void buttonpress(xcb_generic_event_t *e) {
  * then unmap the old windows
  * first all others then the current */
 void change_desktop(const Arg *arg) {
-    if (arg->i == current_desktop) return;
+    if (arg->i == current_desktop || arg->i < 0 || arg->i >= DESKTOPS) return;
     previous_desktop = current_desktop;
     select_desktop(arg->i);
     if (current) xcb_map_window(dis, current->win);
@@ -690,7 +691,7 @@ void last_desktop(const Arg *arg) {
 void mappingnotify(xcb_generic_event_t *e) {
     xcb_mapping_notify_event_t *ev = (xcb_mapping_notify_event_t*)e;
     xcb_refresh_keyboard_mapping(keysyms, ev);
-    if (ev->request == XCB_MAPPING_KEYBOARD) grabkeys();
+    if (ev->request == XCB_MAPPING_KEYBOARD) { setup_keyboard(); grabkeys(); }
 }
 
 /* a map request is received when a window wants to display itself
@@ -816,6 +817,7 @@ void mousemotion(const Arg *arg) {
                 ev = (xcb_motion_notify_event_t*)e;
                 /* float on the first real move, so a plain alt+click does not untile the window;
                  * not in FLOAT mode, so the next tiling mode tiles the window again */
+                if (!current) { ungrab = true; break; }   /* a nested handler removed it */
                 if (!current->isfloating && mode != FLOAT) { current->isfloating = True; tile(); }
                 xw = (arg->i == MOVE ? winx : winw) + ev->root_x - mx;
                 yh = (arg->i == MOVE ? winy : winh) + ev->root_y - my;
@@ -1066,7 +1068,7 @@ void setfullscreen(client *c, bool fullscrn) {
 }
 
 /* get numlock modifier using xcb */
-int setup_keyboard(void)
+static int setup_keyboard(void)
 {
     xcb_get_modifier_mapping_reply_t *reply;
     xcb_keycode_t                    *modmap;
@@ -1298,6 +1300,7 @@ void update_current(client *c) {
         return;
     } else if (c == prevfocus) { prevfocus = prev_client(current = prevfocus ? prevfocus:head);
     } else if (c != current) { prevfocus = current; current = c; }
+    if (!c && !current) c = prevfocus ? prevfocus : head;
     current->isurgent = false; /* it has the focus now */
 
     /* num of n:all fl:fullscreen ft:floating/transient windows */
@@ -1360,5 +1363,6 @@ void toggle_float(const Arg *arg) {
     (void)arg;
     if (!current || current->istransient || current->isfullscrn) return;
     current->isfloating = !current->isfloating;
-    tile();
+    update_current(current); /* restacks and tiles */
+    desktopinfo();
 }
