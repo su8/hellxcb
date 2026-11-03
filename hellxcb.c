@@ -194,6 +194,7 @@ static void togglepanel(const Arg *arg);
 static void update_current(client *c);
 static void unmapnotify(xcb_generic_event_t *e);
 static client* wintoclient(xcb_window_t w);
+static void toggle_float(const Arg *arg);
 
 #include "config.h"
 
@@ -307,7 +308,7 @@ static int xcb_checkotherwm(void) {
     unsigned int values[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT|XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
     error = xcb_request_check(dis, xcb_change_window_attributes_checked(dis, screen->root, XCB_CW_EVENT_MASK, values));
     xcb_flush(dis);
-    if (error) return 1;
+    if (error) { free(error); return 1; }
     return 0;
 }
 
@@ -379,6 +380,8 @@ void cleanup(void) {
         free(query);
     }
     xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, screen->root, XCB_CURRENT_TIME);
+    xcb_key_symbols_free(keysyms);
+    xcb_flush(dis);
 }
 
 /* move a client to another desktop
@@ -386,19 +389,19 @@ void cleanup(void) {
  * remove the current client from the current desktop's client list
  * and add it as last client of the new desktop's client list */
 void client_to_desktop(const Arg *arg) {
-    if (!current || arg->i == current_desktop) return;
+    if (!current || arg->i < 0 || arg->i >= DESKTOPS || arg->i == current_desktop) return;
     int cd = current_desktop;
     client *p = prev_client(current), *c = current;
 
-    select_desktop(arg->i);
-    client *l = prev_client(head);
-    update_current(l ? (l->next = c):head ? (head->next = c):(head = c));
-
-    select_desktop(cd);
     if (c == head || !p) head = c->next; else p->next = c->next;
     c->next = NULL;
     xcb_unmap_window(dis, c->win);
     update_current(prevfocus);
+
+    select_desktop(arg->i);
+    client *l = prev_client(head);
+    update_current(l ? (l->next = c) : head ? (head->next = c) : (head = c));
+    select_desktop(cd);
 
     if (FOLLOW_WINDOW) change_desktop(arg); else tile();
     desktopinfo();
@@ -515,6 +518,8 @@ void desktopinfo(void) {
     int n[DESKTOPS] = {0};
     FILE *fp = NULL;
     static char path[4096];
+    static char tmp[4112];
+    static bool warned = false;
     if (!*path) {
         /* the folder GLib's g_get_user_runtime_dir() gives, where doomy reads its file:
          * $XDG_RUNTIME_DIR, else $XDG_CACHE_HOME, else ~/.cache, all private to the user */
@@ -523,12 +528,14 @@ void desktopinfo(void) {
         else if (cache && *cache) snprintf(path, sizeof path, "%s/%s", cache, HELLXCB_TAG_AND_MODE);
         else snprintf(path, sizeof path, "%s/.cache/%s", home ? home : "", HELLXCB_TAG_AND_MODE);
     }
+    snprintf(tmp, sizeof(tmp), "%s.tmp", path);
     save_desktop(current_desktop);
     for (int d = 0; d < DESKTOPS; d++) for (client *c = desktops[d].head; c; c = c->next) n[d]++;
-    if (!(fp = fopen(path, "w"))) { warn("cannot write %s", path); return; }
+    if (!(fp = fopen(tmp, "w"))) { if (!warned) { warned = true; warn("cannot write %s", tmp); } return; }
     fprintf(fp, "[tag: %d] [mode: %s] [windows: %d]", current_desktop + 1, modes[mode], n[current_desktop]);
     for (int d = 0; d < DESKTOPS; d++) fprintf(fp, " [tag %d win: %d]", d + 1, n[d]);
     fclose(fp);
+    if (rename(tmp, path)) warn("cannot rename %s", tmp);
 }
 
 /* a destroy notification is received when a window is being closed
@@ -966,7 +973,7 @@ void removeclient(client *c) {
     bool found = false;
     for (; nd<DESKTOPS && !found; nd++)
         for (select_desktop(nd), p = &head; *p && !(found = *p == c); p = &(*p)->next);
-    if (!found) return;
+    if (!found) { select_desktop(cd); return; }
     *p = c->next;
     if (c == prevfocus) prevfocus = prev_client(current);
     if (cd == nd - 1) {
@@ -1112,6 +1119,14 @@ void setup(int default_screen) {
     /* check if another wm is running */
     if (xcb_checkotherwm())
         errx(EXIT_FAILURE, "error: other wm is running");
+
+    xcb_font_t f = xcb_generate_id(dis);
+    xcb_cursor_t cur = xcb_generate_id(dis);
+    xcb_open_font(dis, f, 6, "cursor");
+    xcb_create_glyph_cursor(dis, cur, f, f, 68, 69, 0, 0, 0, 0xffff, 0xffff, 0xffff); /* XC_left_ptr */
+    xcb_change_window_attributes(dis, screen->root, XCB_CW_CURSOR, &cur);
+    xcb_free_cursor(dis, cur);
+    xcb_close_font(dis, f);
 
     xcb_change_property(dis, XCB_PROP_MODE_REPLACE, screen->root, netatoms[NET_SUPPORTED], XCB_ATOM_ATOM, 32, NET_COUNT, netatoms);
     grabkeys();
@@ -1279,6 +1294,7 @@ void update_current(client *c) {
     if (!head) {
         xcb_delete_property(dis, screen->root, netatoms[NET_ACTIVE]);
         current = prevfocus = NULL;
+        if (!dropdown_shown) xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, screen->root, XCB_CURRENT_TIME);
         return;
     } else if (c == prevfocus) { prevfocus = prev_client(current = prevfocus ? prevfocus:head);
     } else if (c != current) { prevfocus = current; current = c; }
@@ -1338,4 +1354,11 @@ int main(int argc, char *argv[]) {
     cleanup();
     xcb_disconnect(dis);
     return retval;
+}
+
+void toggle_float(const Arg *arg) {
+    (void)arg;
+    if (!current || current->istransient || current->isfullscrn) return;
+    current->isfloating = !current->isfloating;
+    tile();
 }
