@@ -219,7 +219,7 @@ static desktop desktops[DESKTOPS];
 /* events array
  * on receival of a new event, call the appropriate function to handle it
  */
-static void (*events[XCB_NO_OPERATION])(xcb_generic_event_t *e);
+static void (*events[XCB_NO_OPERATION + 1])(xcb_generic_event_t *e);
 
 /* layout array - given the current layout mode, tile the windows
  * h (or hh) - avaible height that windows have to expand
@@ -1132,7 +1132,7 @@ void setup(int default_screen) {
     grabkeys();
 
     /* set events */
-    for (unsigned int i=0; i<XCB_NO_OPERATION; i++) events[i] = NULL;
+    for (unsigned int i = 0; i < LENGTH(events); i++) events[i] = NULL;
     events[XCB_BUTTON_PRESS]        = buttonpress;
     events[XCB_CLIENT_MESSAGE]      = clientmessage;
     events[XCB_CONFIGURE_REQUEST]   = configurerequest;
