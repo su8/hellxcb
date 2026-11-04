@@ -546,7 +546,8 @@ void destroynotify(xcb_generic_event_t *e) {
     client *c = wintoclient(ev->window);
     if (c) { removeclient(c); desktopinfo(); }
     else if (ev->window == dropdown_win) {
-        dropdown_win = XCB_WINDOW_NONE; dropdown_shown = false; memset(dropdown_shaped, 0, sizeof dropdown_shaped);
+        dropdown_win = XCB_WINDOW_NONE; dropdown_shown = false; dropdown_spawned = false;
+        memset(dropdown_shaped, 0, sizeof(dropdown_shaped));
         update_current(current);
     }
 }
