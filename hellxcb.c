@@ -212,8 +212,7 @@ static client *head, *prevfocus, *current;
 static xcb_window_t dropdown_win = XCB_WINDOW_NONE; /* the drop-down terminal, not a client */
 static int dropdown_shaped[3]; /* as client.shaped */
 static uint16_t restack_seq; /* sequence number of our last restack request, see enternotify() */
-static bool dropdown_shown = false;
-
+static bool dropdown_shown = false, dropdown_spawned = false; /* spawned: terminal started, not mapped yet */
 static xcb_atom_t wmatoms[WM_COUNT], netatoms[NET_COUNT];
 static desktop desktops[DESKTOPS];
 
@@ -555,13 +554,15 @@ void destroynotify(xcb_generic_event_t *e) {
 /* show or hide the drop-down terminal, start it the first time
  * it is not a client: tiling, desktop switching and the window counts ignore it */
 void dropdown(const Arg *arg) {
-    if (!dropdown_win) { spawn(arg); return; } /* maprequest() shows it once it maps */
+    if (!dropdown_win) {
+        if (!dropdown_spawned) { dropdown_spawned = true; spawn(arg); } /* maprequest() shows it once it maps */
+        return;
+    }
     if ((dropdown_shown = !dropdown_shown)) {
         int w = ww * DROPDOWN_WIDTH / 100, h = wh * DROPDOWN_HEIGHT / 100;
         xcb_border_width(dis, dropdown_win, BORDER_WIDTH);
         xcb_change_window_attributes(dis, dropdown_win, XCB_CW_BORDER_PIXEL, &win_focus);
-        xcb_move_resize(dis, dropdown_win, (ww - w) / 2, (TOP_PANEL && showpanel) ? PANEL_HEIGHT : 0,
-                        w - 2*BORDER_WIDTH, h - 2*BORDER_WIDTH);
+        xcb_move_resize(dis, dropdown_win, (ww - w) / 2, (TOP_PANEL && showpanel) ? PANEL_HEIGHT : 0, w - 2*BORDER_WIDTH, h - 2*BORDER_WIDTH);
         xcb_map_window(dis, dropdown_win);
         xcb_raise_window(dis, dropdown_win);
         xcb_set_input_focus(dis, XCB_INPUT_FOCUS_POINTER_ROOT, dropdown_win, XCB_CURRENT_TIME);
