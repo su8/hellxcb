@@ -404,7 +404,7 @@ void client_to_desktop(const Arg *arg) {
     update_current(l ? (l->next = c) : head ? (head->next = c) : (head = c));
     select_desktop(cd);
 
-    if (FOLLOW_WINDOW) change_desktop(arg); else tile();
+    if (FOLLOW_WINDOW) change_desktop(arg); else update_current(current);
     desktopinfo();
 }
 
@@ -808,7 +808,8 @@ void mousemotion(const Arg *arg) {
         xcb_flush(dis);
         if (!(e = xcb_wait_for_event(dis))) errx(EXIT_FAILURE, "error: X11 connection got interrupted");
         switch (e->response_type & ~0x80) {
-            case XCB_CONFIGURE_REQUEST: case XCB_MAP_REQUEST: case XCB_DESTROY_NOTIFY: case XCB_UNMAP_NOTIFY:
+            case XCB_CONFIGURE_REQUEST: case XCB_CONFIGURE_NOTIFY: case XCB_MAP_REQUEST:
+            case XCB_DESTROY_NOTIFY: case XCB_UNMAP_NOTIFY:
                 events[e->response_type & ~0x80](e);
                 ungrab = !current || current->win != win; /* the window went away or a new one took the focus */
                 break;
@@ -1108,6 +1109,7 @@ void setup(int default_screen) {
 
     const char *colours[] = { FOCUS_COLOUR1, FOCUS_COLOUR2, FOCUS_COLOUR3 };
     for (unsigned short int z = 0; z < 3; z++) { randomRGB[z] = getcolor(colours[z]); }
+    win_focus = randomRGB[0];
     win_unfocus = getcolor(UNFOCUS);
 
     /* setup keyboard */
@@ -1301,6 +1303,7 @@ void update_current(client *c) {
     } else if (c == prevfocus) { prevfocus = prev_client(current = prevfocus ? prevfocus:head);
     } else if (c != current) { prevfocus = current; current = c; }
     if (!c && !current) c = prevfocus ? prevfocus : head;
+    if (!current) current = prevfocus ? prevfocus : head;
     current->isurgent = false; /* it has the focus now */
 
     /* num of n:all fl:fullscreen ft:floating/transient windows */
@@ -1337,8 +1340,11 @@ void update_current(client *c) {
 
 /* find to which client the given window belongs to */
 client* wintoclient(xcb_window_t w) {
-    for (int d = 0; d < DESKTOPS; d++)
-        for (client *c = desktops[d].head; c; c = c->next) if (c->win == w) return c;
+    for (client *c = head; c; c = c->next) if (c->win == w) return c; /* live list of the current desktop */
+    for (int d = 0; d < DESKTOPS; d++) {
+        if (d == current_desktop) continue;
+        for (client *c = desktops[d].head; c; c = c->next) { if (c->win == w) return c; }
+    }
     return NULL;
 }
 
