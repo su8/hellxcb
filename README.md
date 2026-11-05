@@ -68,6 +68,7 @@ The default bindings start `xterm` and `dmenu_run`: install them, or set `termcm
 | Alt+Shift+1..4 | move the window to a desktop |
 | Alt+Tab | go to the last desktop |
 | Alt+Shift+t / b / g / f | tile, bottom stack, grid or floating mode |
+| Alt+Shift+space | float or tile the focused window |
 | Alt+left drag / Alt+right drag | move / resize a window, which then floats |
 | Alt+b | show or hide the panel |
 | Alt+Ctrl+r / Alt+Ctrl+q | restart / quit |

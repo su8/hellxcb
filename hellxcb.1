@@ -41,9 +41,10 @@ the file HELLXCB_TAG_AND_MODE in
 in
 .B $XDG_RUNTIME_DIR
 (default
-.IR $XDG_RUNTIME_DIR/hellxcb.txt ,
+.IR $XDG_RUNTIME_DIR/hellxcb.txt ;
+.I $XDG_CACHE_HOME/hellxcb.txt
 or
-.I /tmp/hellxcb.txt
+.I ~/.cache/hellxcb.txt
 when it is not set),
 for example:
 .P
@@ -91,6 +92,9 @@ Sets floating layout: windows keep the place and size they ask for.
 .TP
 .B Mod1\-Shift\-y
 Cycle through all layouts.
+.TP
+.B Mod1\-Shift\-space
+Float or tile the focused window, without changing the layout of the others.
 .TP
 .B Mod1\-j
 Focus next window.

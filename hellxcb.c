@@ -276,6 +276,7 @@ static void xcb_get_atoms(const char **names, xcb_atom_t *atoms, unsigned int co
     xcb_intern_atom_cookie_t cookies[count];
     xcb_intern_atom_reply_t  *reply;
 
+    for (unsigned int i = 0; i < count; i++) atoms[i] = XCB_NONE; /* a failed intern must not leave a stale atom */
     for (unsigned int i = 0; i < count; i++) cookies[i] = xcb_intern_atom(dis, 0, (uint16_t)strlen(names[i]), names[i]);
     for (unsigned int i = 0; i < count; i++) {
         reply = xcb_intern_atom_reply(dis, cookies[i], NULL);
@@ -526,7 +527,7 @@ void desktopinfo(void) {
         const char *run = getenv("XDG_RUNTIME_DIR"), *cache = getenv("XDG_CACHE_HOME"), *home = getenv("HOME");
         if (run && *run) snprintf(path, sizeof path, "%s/%s", run, HELLXCB_TAG_AND_MODE);
         else if (cache && *cache) snprintf(path, sizeof path, "%s/%s", cache, HELLXCB_TAG_AND_MODE);
-        else snprintf(path, sizeof path, "%s/.cache/%s", home ? home : "", HELLXCB_TAG_AND_MODE);
+        else snprintf(path, sizeof path, "%s/.cache/%s", home && *home ? home : ".", HELLXCB_TAG_AND_MODE);
     }
     snprintf(tmp, sizeof(tmp), "%s.tmp", path);
     save_desktop(current_desktop);
@@ -693,7 +694,8 @@ void last_desktop(const Arg *arg) {
 void mappingnotify(xcb_generic_event_t *e) {
     xcb_mapping_notify_event_t *ev = (xcb_mapping_notify_event_t*)e;
     xcb_refresh_keyboard_mapping(keysyms, ev);
-    if (ev->request == XCB_MAPPING_KEYBOARD) { setup_keyboard(); grabkeys(); }
+    /* the modifier map (XCB_MAPPING_MODIFIER) matters too: it maps Num_Lock, see setup_keyboard() */
+    if (ev->request == XCB_MAPPING_KEYBOARD || ev->request == XCB_MAPPING_MODIFIER) { setup_keyboard(); grabkeys(); }
 }
 
 /* a map request is received when a window wants to display itself
@@ -736,6 +738,7 @@ void maprequest(xcb_generic_event_t *e) {
                 break;
             }
     }
+    if (newdsk < 0 || newdsk >= DESKTOPS) newdsk = current_desktop; /* bad rule */
 
     if (cd != newdsk) select_desktop(newdsk);
     client *c = addwindow(ev->window);
@@ -745,11 +748,20 @@ void maprequest(xcb_generic_event_t *e) {
     free(p);
     c->isfloating  = floating || c->istransient;
 
-    if (hasatom(ev->window, netatoms[NET_WM_STATE], netatoms[NET_FULLSCREEN])) setfullscreen(c, true);
-
+    bool fullscrn = hasatom(ev->window, netatoms[NET_WM_STATE], netatoms[NET_FULLSCREEN]);
     if (cd != newdsk) select_desktop(cd);
-    if (cd == newdsk) { tile(); xcb_map_window(dis, c->win); update_current(c); }
-    else if (follow) { change_desktop(&(Arg){.i = newdsk}); update_current(c); }
+
+    /* Map the window first: SetInputFocus on a window that is not viewable is
+     * a BadMatch. And only notice the state after returning to the shown
+     * desktop, so a hidden fullscreen window cannot take the current focus. */
+    if (cd == newdsk) {
+        tile();
+        xcb_map_window(dis, c->win);
+        if (fullscrn) setfullscreen(c, true); else update_current(c);
+    } else if (follow) {
+        change_desktop(&(Arg){.i = newdsk});
+        if (fullscrn) setfullscreen(c, true); else update_current(c);
+    } else if (fullscrn) setfullscreen(c, true); /* hidden desktop: no focus change */
     grabbuttons(c);
 
     desktopinfo();
@@ -1061,8 +1073,14 @@ void select_desktop(int i) {
 
 /* set or unset fullscreen state of client */
 void setfullscreen(client *c, bool fullscrn) {
-    uint32_t data[] = { fullscrn ? netatoms[NET_FULLSCREEN] : XCB_NONE };
-    if (fullscrn != c->isfullscrn) xcb_change_property(dis, XCB_PROP_MODE_REPLACE, c->win, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, fullscrn, data);
+    if (fullscrn != c->isfullscrn) {
+        if (fullscrn) {
+            uint32_t data[] = { netatoms[NET_FULLSCREEN] };
+            xcb_change_property(dis, XCB_PROP_MODE_REPLACE, c->win, netatoms[NET_WM_STATE], XCB_ATOM_ATOM, 32, 1, data);
+        } else {
+            xcb_delete_property(dis, c->win, netatoms[NET_WM_STATE]);
+        }
+    }
     if ((c->isfullscrn = fullscrn)) xcb_move_resize(dis, c->win, 0, 0, ww, wh + PANEL_HEIGHT);
     client *t; for (t = head; t && t != c; t = t->next);
     if (!t) return; /* on a hidden desktop: update_current() sets border and focus once it is shown */
@@ -1082,9 +1100,10 @@ static int setup_keyboard(void)
 
     modmap = xcb_get_modifier_mapping_keycodes(reply); /* points into reply, never NULL */
 
+    numlockmask = 0; /* the map changed: do not keep a stale modifier */
     if (!(numlock = xcb_key_symbols_get_keycode(keysyms, XK_Num_Lock))) { free(reply); return 0; }
-    for (unsigned int i=0; i<8; i++)
-       for (unsigned int j=0; j<reply->keycodes_per_modifier; j++) {
+    for (unsigned int i=0; i<8 && !numlockmask; i++)
+       for (unsigned int j=0; j<reply->keycodes_per_modifier && !numlockmask; j++) {
            xcb_keycode_t keycode = modmap[i * reply->keycodes_per_modifier + j];
            if (keycode == XCB_NO_SYMBOL) continue;
            for (unsigned int n=0; numlock[n] != XCB_NO_SYMBOL; n++)
@@ -1172,7 +1191,8 @@ void spawn(const Arg *arg) {
 /* arrange windows in normal or bottom stack tile */
 void stack(int hh, int cy) {
     client *c = NULL, *t = NULL; bool b = mode == BSTACK;
-    int n = 0, d = 0, z = b ? ww:hh, ma = (int)((mode == BSTACK ? wh:ww) * MASTER_SIZE) + master_size;
+    /* hh and ww are already shrunk by the panel and the gaps, so size the master after them */
+    int n = 0, d = 0, z = b ? ww:hh, ma = (int)((b ? hh:ww) * MASTER_SIZE) + master_size;
 
     /* count stack windows and grab first non-floating, non-fullscreen window */
     for (t = head; t; t=t->next) if (!ISFFT(t)) { if (c) ++n; else c = t; }
@@ -1201,7 +1221,13 @@ void stack(int hh, int cy) {
      *     finally we know each client's height, and how many pixels should be added to
      *     the first stack window so that it satisfies growth, and doesn't create gaps
      *     on the bottom of the screen.  */
-    if (!c) return; else if (!n) {
+    if (!c) return;
+    /* growth is clamped in resize_stack(), but there z is the raw screen size; clamp
+     * it again against the gap-shrunk z, else (z - growth) can go negative here */
+    int lim = z > MINWSZ ? z - MINWSZ : 0;
+    if (growth > lim) growth = lim;
+    else if (growth < -lim) growth = -lim;
+    if (!n) {
         int bw = head->next ? 2*BORDER_WIDTH : 0; /* a lone client has no border, see update_current() */
         tile_move_resize(c->win, 0, cy, ww - bw, hh - bw);
         return;
@@ -1306,22 +1332,34 @@ void update_current(client *c) {
     } else if (c != current) { prevfocus = current; current = c; }
     if (!c && !current) c = prevfocus ? prevfocus : head;
     if (!current) current = prevfocus ? prevfocus : head;
+    /* current can still be stale after a client that had the focus was removed */
+    for (c = head; c && c != current; c = c->next);
+    if (!c) current = head;
     current->isurgent = false; /* it has the focus now */
 
-    /* num of n:all fl:fullscreen ft:floating/transient windows */
-    int n = 0, fl = 0, ft = 0;
-    for (c = head; c; c = c->next, ++n) if (ISFFT(c)) { fl++; if (!c->isfullscrn) ft++; }
+    /* count the clients, then fill w[] with the stacking order, w[0] on top.
+     * Each window is written exactly once: the old index arithmetic let a
+     * floating window and a fullscreen window overwrite each other's slot. */
+    int n = 0;
+    for (c = head; c; c = c->next) ++n;
     const int count = n;
     xcb_window_t w[n];
     static unsigned int rgb = 0U;
     if (rgb >= 3U) { rgb = 0U; }
     win_focus = randomRGB[rgb];
-    /* w[] is the stacking order, w[0] on top; see the comment above */
-    w[(current->isfloating||current->istransient) && !current->isfullscrn ? 0:ft] = current->win;
-    for (fl += !ISFFT(current)?1:0, c = head; c; c = c->next) {
-        xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus:&win_unfocus));
+    int k = 0;
+    if ((current->isfloating || current->istransient) && !current->isfullscrn) w[k++] = current->win;
+    for (c = head; c; c = c->next)
+        if (c != current && ISFFT(c) && !c->isfullscrn) w[k++] = c->win;
+    if (!ISFFT(current)) w[k++] = current->win; /* current tiled */
+    if (current->isfullscrn) w[k++] = current->win;
+    for (c = head; c; c = c->next)
+        if (c != current && c->isfullscrn) w[k++] = c->win;
+    for (c = head; c; c = c->next)
+        if (c != current && !ISFFT(c)) w[k++] = c->win;
+    for (c = head; c; c = c->next) {
+        xcb_change_window_attributes(dis, c->win, XCB_CW_BORDER_PIXEL, (c == current ? &win_focus : &win_unfocus));
         xcb_border_width(dis, c->win, (!head->next || c->isfullscrn) ? 0 : BORDER_WIDTH);
-        if (c != current) w[c->isfullscrn ? --fl : ISFFT(c) ? --ft : --n] = c->win;
     }
     rgb++;
     /* restack */
