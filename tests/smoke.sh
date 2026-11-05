@@ -158,4 +158,12 @@ kill $P3; sleep 0.8
 expect "a window closing on a hidden desktop keeps the active window" "$(xdotool getactivewindow 2>/dev/null)" "$A"
 kill $P1 $P2
 
+# growing or shrinking the first stack window keeps every stack window at least MINWSZ (50) high
+for i in 1 2 3; do xterm -class stacktest & done; sleep 2
+xdotool key alt+shift+t; sleep 0.3
+smallest() { for w in $(xdotool search --class stacktest); do geom "$w" HEIGHT; done | sort -n | head -1; }
+xdotool key --repeat 100 --delay 5 alt+p; sleep 0.8; expect "a stack window grown far leaves the others at least 50 high" "$([ "$(smallest)" -ge 50 ] && echo yes || echo "no, $(smallest)")" yes
+xdotool key --repeat 200 --delay 5 alt+o; sleep 0.8; expect "a stack window shrunk far stays at least 50 high" "$([ "$(smallest)" -ge 50 ] && echo yes || echo "no, $(smallest)")" yes
+pkill -f 'class stacktest'; sleep 0.5
+
 exit $fail

@@ -1012,10 +1012,9 @@ void resize_master(const Arg *arg) {
     tile();
 }
 
-/* resize the first stack window - no boundary checks */
+/* resize the first stack window - stack() keeps every stack window at least MINWSZ */
 void resize_stack(const Arg *arg) {
-    int z = mode == BSTACK ? wh : ww;
-    growth = MAX(-z + MINWSZ, MIN(z - MINWSZ, growth + arg->i));
+    growth += arg->i;
     tile();
 }
 
@@ -1222,11 +1221,12 @@ void stack(int hh, int cy) {
      *     the first stack window so that it satisfies growth, and doesn't create gaps
      *     on the bottom of the screen.  */
     if (!c) return;
-    /* growth is clamped in resize_stack(), but there z is the raw screen size; clamp
-     * it again against the gap-shrunk z, else (z - growth) can go negative here */
-    int lim = z > MINWSZ ? z - MINWSZ : 0;
-    if (growth > lim) growth = lim;
-    else if (growth < -lim) growth = -lim;
+    /* keep every stack window at least MINWSZ, after its borders and gaps: the first gets (z - growth)/n + growth,
+     * the others (z - growth)/n, so growth runs from (n*min - z)/(n - 1) to z - n*min; with no room, all are equal */
+    if (n > 1) {
+        int min = MINWSZ + 2*BORDER_WIDTH + gap_lt + gap_rb, most = z - n*min, least = (n*min - z)/(n - 1);
+        growth = least > most ? 0 : MAX(least, MIN(most, growth));
+    }
     if (!n) {
         int bw = head->next ? 2*BORDER_WIDTH : 0; /* a lone client has no border, see update_current() */
         tile_move_resize(c->win, 0, cy, ww - bw, hh - bw);
