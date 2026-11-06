@@ -1,6 +1,6 @@
 #!/bin/sh
 # smoke test: run hellxcb on a virtual X server, do the things that used to crash it
-# or misplace windows, and check it is still alive. Needs: Xvfb xdotool xterm xwininfo
+# or misplace windows, and check it is still alive. Needs: Xvfb xdotool xterm xwininfo python3
 # The expected numbers assume the default config.h: 800x600 screen, PANEL_HEIGHT 18,
 # BORDER_WIDTH 2, GAPS_INNER 8, SMART_GAPS True, the MPlayer and Gimp rules.
 set -u
@@ -156,6 +156,36 @@ xterm -class MPlayer & P3=$!; sleep 1.5
 xdotool key alt+1; sleep 0.5
 kill $P3; sleep 0.8
 expect "a window closing on a hidden desktop keeps the active window" "$(xdotool getactivewindow 2>/dev/null)" "$A"
-kill $P1 $P2
+kill $P1 $P2; sleep 0.5
+
+# a dock, such as the doomy bar, is shown where it asks, on the panel's place, and is no window to tile.
+# It must be a dock before it maps, which no tool here does: python's ctypes calls Xlib for it
+python3 - <<'PY' & D=$!
+import ctypes, time
+x = ctypes.cdll.LoadLibrary("libX11.so.6")
+for f in ("XOpenDisplay", "XDefaultRootWindow", "XCreateSimpleWindow", "XInternAtom"):
+    getattr(x, f).restype = ctypes.c_ulong
+d = ctypes.c_void_p(x.XOpenDisplay(None))
+w = ctypes.c_ulong(x.XCreateSimpleWindow(d, ctypes.c_ulong(x.XDefaultRootWindow(d)), 0, 0, 100, 10, 0, 0, 0))
+dock = ctypes.c_ulong(x.XInternAtom(d, b"_NET_WM_WINDOW_TYPE_DOCK", 0))
+x.XChangeProperty(d, w, ctypes.c_ulong(x.XInternAtom(d, b"_NET_WM_WINDOW_TYPE", 0)), ctypes.c_ulong(4), 32, 0,
+                  ctypes.byref(dock), 1)  # 4: XA_ATOM, 0: PropModeReplace
+x.XStoreName(d, w, b"hellxcb-dock")
+x.XMapWindow(d, w); x.XFlush(d); time.sleep(0.5)
+x.XMoveResizeWindow(d, w, 0, 0, 800, 18); x.XFlush(d); time.sleep(30)
+PY
+sleep 1.5
+W=$(xdotool search --name hellxcb-dock | head -1)
+expect "a dock sits where it asks, on the panel's place" "$(geom "$W" X) $(geom "$W" Y) $(geom "$W" WIDTH) $(geom "$W" HEIGHT)" "0 0 800 18"
+expect "a dock is not counted as a window" "$(sed -n 's/^\[tag: [0-9]*\] \[mode: [a-z]*\] \[windows: \([0-9]*\)\].*/\1/p' "$STATUS")" 0
+kill $D
+
+# growing or shrinking the first stack window keeps every stack window at least MINWSZ (50) high
+for i in 1 2 3; do xterm -class stacktest & done; sleep 2
+xdotool key alt+shift+t; sleep 0.3
+smallest() { for w in $(xdotool search --class stacktest); do geom "$w" HEIGHT; done | sort -n | head -1; }
+xdotool key --repeat 100 --delay 5 alt+p; sleep 0.8; expect "a stack window grown far leaves the others at least 50 high" "$([ "$(smallest)" -ge 50 ] && echo yes || echo "no, $(smallest)")" yes
+xdotool key --repeat 200 --delay 5 alt+o; sleep 0.8; expect "a stack window shrunk far stays at least 50 high" "$([ "$(smallest)" -ge 50 ] && echo yes || echo "no, $(smallest)")" yes
+pkill -f 'class stacktest'; sleep 0.5
 
 exit $fail

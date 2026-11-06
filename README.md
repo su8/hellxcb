@@ -89,6 +89,7 @@ The default bindings start `xterm` and `dmenu_run`: install them, or set `termcm
 
 hellxcb has no bar of its own; the one in the picture above is [doomy](https://github.com/su8/doomy).
 It leaves `PANEL_HEIGHT` pixels free at the top for one (`TOP_PANEL False` for the bottom).
+A bar that is a dock window, as doomy is, is shown where it asks and never tiled.
 Whenever the desktop, mode or windows change, it writes a line like this to `$XDG_RUNTIME_DIR/hellxcb.txt`
 (`$XDG_CACHE_HOME/hellxcb.txt` or `~/.cache/hellxcb.txt` when it is not set, the same folder doomy reads from):
 
